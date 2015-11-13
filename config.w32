@@ -1,0 +1,13 @@
+// $Id$
+// vim:ft=javascript
+
+// If your extension references something external, use ARG_WITH
+// ARG_WITH("openssl_pkcs", "for openssl_pkcs support", "no");
+
+// Otherwise, use ARG_ENABLE
+// ARG_ENABLE("openssl_pkcs", "enable openssl_pkcs support", "no");
+
+if (PHP_OPENSSL_PKCS != "no") {
+	EXTENSION("openssl_pkcs", "openssl_pkcs.c");
+}
+
