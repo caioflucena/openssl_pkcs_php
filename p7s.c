@@ -1,7 +1,7 @@
 #include <php.h>
 #include "p7s.h"
 
-PHP_METHOD(ikhon_pkcs7, __construct) {
+PHP_METHOD(openssl_pkcs7, __construct) {
     int filenameLength;
     char * filename;
 
@@ -38,9 +38,15 @@ PHP_METHOD(ikhon_pkcs7, __construct) {
     array_init(signatures);
     setP7sSignatures(p7s, &signatures);
 
+    // set content info
+    zval * signedContent;
+    MAKE_STD_ZVAL(signedContent);
+    array_init(signedContent);
+    setP7sSignedContent(p7s, &signedContent);
+
     // class attributes
     zend_update_property(openssl_pkcs_p7s_ce, getThis(), "signatures", sizeof("signatures"), signatures TSRMLS_CC);
-    //zend_update_property(ikhon_pkcs7_ce, getThis(), "content", sizeof("content"), signedContent TSRMLS_CC);
+    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content"), signedContent TSRMLS_CC);
 
     if (p7s != NULL) {
         PKCS7_free(p7s);
@@ -48,13 +54,30 @@ PHP_METHOD(ikhon_pkcs7, __construct) {
 }
 
 /**
- *  *
- *   */
+ *
+ */
+PHP_METHOD(openssl_pkcs7, getSignatures) {
+    zval * result;
+           result = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "signatures", sizeof("signatures"), 1 TSRMLS_CC);
+    RETURN_ZVAL(result, 1, 0);
+}
+
+/**
+ *
+ */
+PHP_METHOD(openssl_pkcs7, getSignedContent) {
+    zval * result;
+           result = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content"), 1 TSRMLS_CC);
+    RETURN_ZVAL(result, 1, 0);
+}
+
+/**
+ * 
+ */
 static zend_function_entry openssl_pkcs_p7s_methods[] = {
-    PHP_ME(ikhon_pkcs7, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-    //PHP_ME(ikhon_pkcs7, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-    //PHP_ME(ikhon_pkcs7, getSignatures, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-    //PHP_ME(ikhon_pkcs7, getSignedContent, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs7, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs7, getSignatures, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs7, getSignedContent, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     {NULL, NULL, NULL}
 };
 
@@ -63,8 +86,6 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
 
     INIT_CLASS_ENTRY(ce, "Openssl\\P7s", openssl_pkcs_p7s_methods);
     openssl_pkcs_p7s_ce = zend_register_internal_class(&ce TSRMLS_CC);
-    //openssl_pkcs_p7s_ce->create_object = ikhon_pkcs7_create_object;
-    //memcpy(&ikhon_pkcs7_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 }
 
 /**
@@ -106,6 +127,23 @@ void setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
 
         add_next_index_zval(*signatures, signature);
     }
+}
+
+/**
+ *
+ */
+void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
+    // signed content length
+    ASN1_OCTET_STRING * octet_str = p7s->d.sign->contents->d.data;
+    int length = octet_str->length;
+    add_assoc_long(*signedContent, "length", length);
+    // signed content data
+    unsigned char * contentStringEncoded;
+    unsigned char * contentString = (unsigned char *) malloc(length);
+    memcpy(contentString, octet_str->data, length);
+    bin_to_strhex(contentString, length, &contentStringEncoded);
+
+    add_assoc_string(*signedContent, "hexData", contentStringEncoded, 0);
 }
 
 /**
@@ -178,3 +216,24 @@ void setX509EntityData(X509 * x509, zval ** entity) {
     add_assoc_string(*entity, "commonName", ASN1_STRING_data(X509_NAME_ENTRY_get_data(nameEntry)), 1);
     add_assoc_long(*entity, "serialNumber", ASN1_INTEGER_get(X509_get_serialNumber(x509)));
 }
+
+/**
+ *
+ */
+void bin_to_strhex(unsigned char *bin, unsigned int binsz, unsigned char **result) {
+    char hex_str[]= "0123456789abcdef";
+    unsigned int  i;
+
+    * result = (char *)malloc(binsz * 2 + 1);
+    (* result)[binsz * 2] = 0;
+
+    if (!binsz) {
+        return;
+    }
+
+    for (i = 0; i < binsz; i++) {
+        (* result)[i * 2 + 0] = hex_str[(bin[i] >> 4) & 0x0F];
+        (* result)[i * 2 + 1] = hex_str[(bin[i]     ) & 0x0F];
+    }  
+}
+
