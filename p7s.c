@@ -91,7 +91,7 @@ int getPkcs7Bio(char * filename, PKCS7 ** p7s) {
 /**
  *
  */
-setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
+void setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
     STACK_OF(PKCS7_SIGNER_INFO) * signerStack = PKCS7_get_signer_info(p7s);
     int numSignerInfo = sk_PKCS7_SIGNER_INFO_num(signerStack);
 
@@ -102,7 +102,7 @@ setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
         zval * signature;
         MAKE_STD_ZVAL(signature);
         array_init(signature);
-        setP7sSignature(signerInfo, &signature);
+        setP7sSignature(p7s, signerInfo, &signature);
 
         add_next_index_zval(*signatures, signature);
     }
@@ -111,7 +111,7 @@ setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
 /**
  *
  */
-setP7sSignature(PKCS7_SIGNER_INFO * signerInfo, zval ** signature) {
+void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signature) {
     // sign time
     ASN1_TYPE * signedTime;
                 signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
@@ -132,25 +132,49 @@ setP7sSignature(PKCS7_SIGNER_INFO * signerInfo, zval ** signature) {
 
     // signer issuer
     zval * signer;
-
-    STACK_OF(X509) * x509s = NULL;
-                     x509s = getStackX509(p7s);
-    int index;
-    for (index = 0; x509s && index < sk_X509_num(x509s); index++) {
-
-        X509 * x509 = sk_X509_value(x509s,index);
-        zval * data = getData(x509);
-
-        long x509Serial = ASN1_INTEGER_get(X509_get_serialNumber(x509));
-
-        if (x509Serial == serial) {
-            signer = getSubject(x509);
-
-            //printf("\n---------------------------------------------------------------------------\n");
-            //printf("Cert #%d\n", index);
-            //X509_print_fp(stdout, x509);
-        }
-    }
-    add_assoc_zval(signature, "signer", getSignerBySerial(p7s, ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial)));
+    MAKE_STD_ZVAL(signer);
+    array_init(signer);
+    setSigner(p7s, signerInfo, &signer);
+    add_assoc_zval(*signature, "signer", signer);
 }
 
+/**
+ *
+ */
+void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer) {
+    STACK_OF(X509) * certs = NULL;
+    long signerSerial = ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial);
+
+    int type;
+    type = OBJ_obj2nid(p7s->type);
+    if (type == NID_pkcs7_signed) {
+        certs = p7s->d.sign->cert;
+    } else if(type == NID_pkcs7_signedAndEnveloped) {
+        certs = p7s->d.signed_and_enveloped->cert;
+    }
+
+    int index;
+    for (index = 0; certs && index < sk_X509_num(certs); index++) {
+        X509 * x509 = sk_X509_value(certs,index);
+
+        long signatureSerial = ASN1_INTEGER_get(X509_get_serialNumber(x509));
+        if (signerSerial != signatureSerial) {
+            continue;
+        }
+        setX509EntityData(x509, signer);
+    }
+}
+
+/**
+ *
+ */
+void setX509EntityData(X509 * x509, zval ** entity) {
+    X509_NAME * subjectName = X509_get_subject_name(x509);
+
+    // common name
+    int nid = OBJ_txt2nid("CN");
+    int index = X509_NAME_get_index_by_NID(subjectName, nid, -1);
+    X509_NAME_ENTRY * nameEntry = X509_NAME_get_entry(subjectName, index);
+    add_assoc_string(*entity, "commonName", ASN1_STRING_data(X509_NAME_ENTRY_get_data(nameEntry)), 1);
+    add_assoc_long(*entity, "serialNumber", ASN1_INTEGER_get(X509_get_serialNumber(x509)));
+}

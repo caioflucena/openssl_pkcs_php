@@ -38,6 +38,9 @@ zval * getSubject(X509 * x509);
 //zval * getSignatures(PKCS7 * p7s);
 
 int getPkcs7Bio(char * filepath, PKCS7 ** p7s);
-setP7sSignatures(PKCS7 * p7s, zval ** signatures);
+void setP7sSignatures(PKCS7 * p7s, zval ** signatures);
+void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signature);
+void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer);
+void setX509EntityData(X509 * x509, zval ** entity);
 
 #endif
