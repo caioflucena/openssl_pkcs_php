@@ -41,7 +41,7 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     // set content info
     zval * signedContent;
     MAKE_STD_ZVAL(signedContent);
-    array_init(signedContent);
+    //array_init(signedContent);
     setP7sSignedContent(p7s, &signedContent);
 
     // class attributes
@@ -133,17 +133,21 @@ void setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
  *
  */
 void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
-    // signed content length
+    if (NULL == p7s->d.sign->contents->d.data) {
+        ZVAL_STRING(*signedContent, "", 1);
+        return;
+    }
+
     ASN1_OCTET_STRING * octet_str = p7s->d.sign->contents->d.data;
     int length = octet_str->length;
-    add_assoc_long(*signedContent, "length", length);
-    // signed content data
     unsigned char * contentStringEncoded;
     unsigned char * contentString = (unsigned char *) malloc(length);
     memcpy(contentString, octet_str->data, length);
     bin_to_strhex(contentString, length, &contentStringEncoded);
+    ZVAL_STRING(*signedContent, contentStringEncoded, 1);
 
-    add_assoc_string(*signedContent, "hexData", contentStringEncoded, 0);
+    free(contentString);
+    free(contentStringEncoded);
 }
 
 /**
