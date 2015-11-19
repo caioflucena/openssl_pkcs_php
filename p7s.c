@@ -21,7 +21,7 @@ PHP_METHOD(openssl_pkcs7, __construct) {
 
     // initialize openssl pkcs7
     PKCS7 * p7s = NULL;
-    if (!getPkcs7Bio(filename, &p7s)) {
+    if (!getPkcs7Bio(filename, &p7s) || NULL == p7s) {
         php_error(E_WARNING, "invalid pkcs7 file.");
         return;
     }
@@ -45,6 +45,9 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     setP7sSignedContent(p7s, &signedContent);
     zend_update_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content"), signedContent TSRMLS_CC);
 
+    // set content length
+    zend_update_property_long(openssl_pkcs_p7s_ce, getThis(), "contentLength", sizeof("contentLength"), setP7sSignedContentLength(p7s) TSRMLS_CC);
+
     if (p7s != NULL) {
         PKCS7_free(p7s);
     }
@@ -53,7 +56,7 @@ PHP_METHOD(openssl_pkcs7, __construct) {
 /**
  *
  */
-PHP_METHOD(openssl_pkcs7, getSignatures) {
+PHP_METHOD(openssl_pkcs7, getSignature) {
     zval * result;
            result = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "signatures", sizeof("signatures"), 1 TSRMLS_CC);
     RETURN_ZVAL(result, 1, 0);
@@ -69,12 +72,67 @@ PHP_METHOD(openssl_pkcs7, getContent) {
 }
 
 /**
+ *
+ */
+PHP_METHOD(openssl_pkcs7, verify) {
+    int filenameLength;
+    char * filename;
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filenameLength) == FAILURE) {
+        return;
+    }
+
+    unsigned char * contentStringEncoded;
+
+    FILE * file;
+           file = fopen(filename, "rb");
+    if (NULL == file) {
+        php_error(E_WARNING, "invalid file.");
+        return;
+    } else {
+        int length;
+
+        fseek(file, 0L, SEEK_END);
+        length = ftell(file);
+        fseek(file, 0L, SEEK_SET);
+
+        unsigned char * contentString = (unsigned char *) malloc(length);
+        //fgets(contentString, length, file); 
+        fread(contentString, length, 1, file); 
+        bin_to_strhex(contentString, length, &contentStringEncoded);
+        free(contentString);
+        //free(contentStringEncoded);
+    }
+    fclose(file);
+
+    zval * content;
+           content = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content"), 1 TSRMLS_CC);
+ 
+    zval * result;
+    MAKE_STD_ZVAL(result);
+/**/
+    if (strcmp(contentStringEncoded, content->value.str.val) == 0) {
+        ZVAL_BOOL(result, 1);
+    } else {
+        ZVAL_BOOL(result, 0);
+    }
+    free(contentStringEncoded);
+/**/
+    //ZVAL_STRING(result, contentStringEncoded, 1);
+    //ZVAL_STRING(result, content->value.str.val, 1);
+
+    //free(contentStringEncoded);
+
+    RETURN_ZVAL(result, 1, 0);
+}
+
+/**
  * 
  */
 static zend_function_entry openssl_pkcs_p7s_methods[] = {
     PHP_ME(openssl_pkcs7, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-    PHP_ME(openssl_pkcs7, getSignatures, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs7, getSignature, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     PHP_ME(openssl_pkcs7, getContent, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs7, verify, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     {NULL, NULL, NULL}
 };
 
@@ -145,6 +203,15 @@ void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
 
     free(contentString);
     free(contentStringEncoded);
+}
+
+int setP7sSignedContentLength(PKCS7 * p7s) {
+    if (NULL == p7s->d.sign->contents->d.data) {
+        return 0;
+    }
+
+    ASN1_OCTET_STRING * octet_str = p7s->d.sign->contents->d.data;
+    return octet_str->length;
 }
 
 /**
