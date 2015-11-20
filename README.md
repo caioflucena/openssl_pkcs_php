@@ -1,5 +1,7 @@
 ## Openssl pkcs7
 
+The purpose of this extension is cover the signature and content extraction on p7s files, besides verify if given file was signed.
+
 #### First you must get the PHP source code and checkout to the desired revision or tag
     git clone https://github.com/php/php-src.git
     cd php-src
