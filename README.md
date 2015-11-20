@@ -18,7 +18,7 @@
     php -i | grep "Loaded Configuration File" | awk '{print "echo \"extension=openssl_pkcs.so\" >> " $5}'
     service httpd restart
 
-## Have fun
+### Have fun
 
 Create a self-signed certificate.
 ```
