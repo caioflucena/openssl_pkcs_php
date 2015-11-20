@@ -1,23 +1,65 @@
-## openssl-pkcs7
+## Openssl pkcs7
 
 #### First you must get the PHP source code and checkout to the desired revision or tag
-  - git clone https://github.com/php/php-src.git
-  - cd php-src
-  - git checkout {DESIRED_TAG} (e.g. git checkout php-5.6.15)
+    git clone https://github.com/php/php-src.git
+    cd php-src
+    git checkout {DESIRED_TAG} (e.g. git checkout php-5.6.15)
 
 #### Next clone the Openssl_Pkcs source code inside the PHP extension folder
-  - cd ext
-  - git clone https://github.com/caioflucena/openssl_pkcs.git
-  - cd openssl_pkcs
-  - git checkout {DESIRED_TAG} (e.g. git checkout 0.1.0)
+    cd ext
+    git clone https://github.com/caioflucena/openssl_pkcs.git
+    cd openssl_pkcs
+    git checkout {DESIRED_TAG} (e.g. git checkout 0.1.0)
 
-#### Now compile the extension and move (or create a symbolic link) to the PHP default extention folder of your operational system
-  - phpize && ./configure && make
-  - if you don't know where it is on your OS you can run the following command
-    - php-config --extension-dir
-  - mv openssl_pkcs.so {EXTENSION_FOLDER} (e.g. /usr/lib64/php/modules/)
-  - If you are using apache enable the extension
-    - echo 'extension=openssl_pkcs.so' >> {YOUR_PHP_INI_FILE} (e.g. /etc/php.ini)
-    - service httpd restart
+#### Now compile and install the extension
 
-Feel free to contribute and see how to use the extension on PHP here (por o link do projeto de demonstração aqui)
+    phpize && ./configure && make
+    php-config --extension-dir | awk '{print "mv modules/openssl_pkcs.so " $1}'
+    php -i | grep "Loaded Configuration File" | awk '{print "echo \"extension=openssl_pkcs.so\" >> " $5}'
+    service httpd restart
+
+## Have fun
+
+Create a self-signed certificate.
+```
+openssl req -x509 -sha256 -nodes -days 365 \
+ -newkey rsa:2048 -keyout privateKey.key -out certificate.crt
+```
+Create a message file.
+```
+echo "I am a message" > message.txt
+```
+Sign the message file.
+```
+openssl smime -sign -binary -nodetach \
+ -in message.txt -out message.txt.signed -outform der -inkey privateKey.key -signer certificate.crt
+```
+PHP :)
+```php
+$p7s = new Openssl\P7s('message.txt.signed');
+
+# get signature(s)
+$p7s->getSignature();
+// returns an array that contains the signers list
+// Array (
+//  [0] => Array (
+//    [datetime] => DateTime Object (
+//      [date] => 2015-11-20 17:41:26.000000
+//      [timezone_type] => 3
+//      [timezone] => America/Sao_Paulo
+//    )
+//    [signer] => Array (
+//      [commonName] => Organization Name X Common Name
+//      [serialNumber] => -1658951932288993633
+//    )
+//  )
+// )
+
+# get content
+$p7s->getContent(); // returns the content on hexadecimal format (4920616d2061206d6573736167650a)
+// to print the original message
+echo hex2bin($p7s->getContent());
+
+# verify
+$p7s->verify('message.txt'); // returns a boolean
+```
