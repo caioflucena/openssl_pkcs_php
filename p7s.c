@@ -1,6 +1,14 @@
 #include <php.h>
 #include "p7s.h"
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_construct, 0, 0, 0)
+    ZEND_ARG_INFO(0, filename)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_verify, 0, 0, 1)
+    ZEND_ARG_INFO(0, filename)
+ZEND_END_ARG_INFO()
+
 PHP_METHOD(openssl_pkcs7, __construct) {
     int filenameLength;
     char * filename;
@@ -101,6 +109,11 @@ PHP_METHOD(openssl_pkcs7, verify) {
 
     zval * content;
            content = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, 1 TSRMLS_CC);
+
+    if (NULL == content->value.str.val) {
+        php_error(E_WARNING, "invalid content.");
+        return;
+    }
  
     zval * result;
     MAKE_STD_ZVAL(result);
@@ -118,10 +131,10 @@ PHP_METHOD(openssl_pkcs7, verify) {
  * 
  */
 static zend_function_entry openssl_pkcs_p7s_methods[] = {
-    PHP_ME(openssl_pkcs7, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs7, __construct, arginfo_openssl_pkcs_construct, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
     PHP_ME(openssl_pkcs7, getSignature, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
     PHP_ME(openssl_pkcs7, getContent, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
-    PHP_ME(openssl_pkcs7, verify, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs7, verify, arginfo_openssl_pkcs_verify, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
     {NULL, NULL, NULL}
 };
 
