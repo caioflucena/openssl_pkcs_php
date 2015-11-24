@@ -6,4 +6,4 @@ Check for openssl_pkcs exception with invalid file as constructor parameter
 <?php 
 $p7s = new Openssl\P7s('error');
 --EXPECTF--
-Warning: invalid file. in %s on line %d
+Fatal error: Invalid File. in %s

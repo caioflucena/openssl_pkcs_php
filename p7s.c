@@ -21,7 +21,7 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     FILE * file;
            file = fopen(filename, "r");
     if (NULL == file) {
-        php_error(E_WARNING, "invalid file.");
+        php_error(E_ERROR, "Invalid File.");
         return;
     } else {
         fclose(file);
@@ -30,13 +30,13 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     // initialize openssl pkcs7
     PKCS7 * p7s = NULL;
     if (!getPkcs7Bio(filename, &p7s) || NULL == p7s) {
-        php_error(E_WARNING, "invalid pkcs7 file.");
+        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Invalid PKCS7 File.", 0 TSRMLS_CC);
         return;
     }
 
     // covering unexpected behaviours
     if (NULL == p7s) {
-        php_error(E_WARNING, "unexpected error!");
+        php_error(E_ERROR, "Unexpected Error!");
         return;
     }
 

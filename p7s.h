@@ -3,6 +3,7 @@
 
 #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
+#include "Zend/zend_exceptions.h"
 #include "ext/date/php_date.h"
 
 zend_class_entry * openssl_pkcs_p7s_ce;
