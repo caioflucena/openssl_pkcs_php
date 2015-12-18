@@ -234,7 +234,6 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
     MAKE_STD_ZVAL(param2);
     ZVAL_STRING(param2, signedTime->value.utctime->data, 1);
 
-	//void ***tsrm_ls = TSRMLS_FETCH();
     if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC) == NULL) {
         php_error(E_WARNING, "Could not create signature datetime.");
     }
