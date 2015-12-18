@@ -17,7 +17,6 @@
 */
 
 /* $Id$ */
-
 #ifndef PHP_OPENSSL_PKCS_H
 #define PHP_OPENSSL_PKCS_H
 

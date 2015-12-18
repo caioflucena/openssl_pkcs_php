@@ -1,9 +1,12 @@
 #ifndef P7S_H_INCLUDED
 #define P7S_H_INCLUDED
 
+#include <zend_interfaces.h>
+#include <zend_exceptions.h>
+#include <php.h>
 #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
-#include "Zend/zend_exceptions.h"
+
 #include "ext/date/php_date.h"
 
 zend_class_entry * openssl_pkcs_p7s_ce;

@@ -1,4 +1,3 @@
-#include <php.h>
 #include "p7s.h"
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_construct, 0, 0, 0)
@@ -146,8 +145,8 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
     // flags
     openssl_pkcs_p7s_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "signature", sizeof("signature")-1, ZEND_ACC_PRIVATE);
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "signature", sizeof("signature")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
 }
 
 /**
@@ -228,7 +227,8 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
     MAKE_STD_ZVAL(param2);
     ZVAL_STRING(param2, signedTime->value.utctime->data, 1);
 
-    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC ) == FAILURE) {
+	TSRMLS_FETCH();
+    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC) == NULL) {
         php_error(E_WARNING, "Could not create signature datetime.");
     }
 
