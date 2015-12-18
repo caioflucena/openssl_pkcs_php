@@ -1,4 +1,3 @@
-#include <php.h>
 #include "p7s.h"
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_construct, 0, 0, 0)
@@ -12,14 +11,17 @@ ZEND_END_ARG_INFO()
 PHP_METHOD(openssl_pkcs7, __construct) {
     int filenameLength;
     char * filename;
+    FILE * file;
+    PKCS7 * p7s = NULL;
+    zval * signatures;
+    zval * signedContent;
 
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filenameLength) == FAILURE) {
         return;
     }
 
     // cant find file
-    FILE * file;
-           file = fopen(filename, "r");
+    file = fopen(filename, "r");
     if (NULL == file) {
         php_error(E_ERROR, "Invalid File.");
         return;
@@ -28,7 +30,6 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     }
 
     // initialize openssl pkcs7
-    PKCS7 * p7s = NULL;
     if (!getPkcs7Bio(filename, &p7s) || NULL == p7s) {
         zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Invalid PKCS7 File.", 0 TSRMLS_CC);
         return;
@@ -41,14 +42,12 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     }
 
     // set signatures
-    zval * signatures;
     MAKE_STD_ZVAL(signatures);
     array_init(signatures);
     setP7sSignatures(p7s, &signatures);
     zend_update_property(openssl_pkcs_p7s_ce, getThis(), "signature", sizeof("signature")-1, signatures TSRMLS_CC);
 
     // set content info
-    zval * signedContent;
     MAKE_STD_ZVAL(signedContent);
     setP7sSignedContent(p7s, &signedContent);
     zend_update_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, signedContent TSRMLS_CC);
@@ -82,14 +81,17 @@ PHP_METHOD(openssl_pkcs7, getContent) {
 PHP_METHOD(openssl_pkcs7, verify) {
     int filenameLength;
     char * filename;
+	unsigned char * contentString;
+    unsigned char * contentStringEncoded;
+	FILE * file;
+    zval * content;
+    zval * result;
+
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filenameLength) == FAILURE) {
         return;
     }
-
-    unsigned char * contentStringEncoded;
-
-    FILE * file;
-           file = fopen(filename, "rb");
+	
+    file = fopen(filename, "rb");
     if (NULL == file) {
         php_error(E_WARNING, "invalid file.");
         return;
@@ -100,22 +102,19 @@ PHP_METHOD(openssl_pkcs7, verify) {
         length = ftell(file);
         fseek(file, 0L, SEEK_SET);
 
-        unsigned char * contentString = (unsigned char *) malloc(length);
+        contentString = (unsigned char *) malloc(length);
         fread(contentString, length, 1, file); 
         bin_to_strhex(contentString, length, &contentStringEncoded);
         free(contentString);
     }
     fclose(file);
 
-    zval * content;
-           content = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, 1 TSRMLS_CC);
-
+    content = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, 1 TSRMLS_CC);
     if (NULL == content->value.str.val) {
         php_error(E_WARNING, "invalid content.");
         return;
     }
- 
-    zval * result;
+
     MAKE_STD_ZVAL(result);
     if (strcmp(contentStringEncoded, content->value.str.val) == 0) {
         ZVAL_BOOL(result, 1);
@@ -146,8 +145,8 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
     // flags
     openssl_pkcs_p7s_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "signature", sizeof("signature")-1, ZEND_ACC_PRIVATE);
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "signature", sizeof("signature")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
 }
 
 /**
@@ -195,15 +194,19 @@ void setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
  *
  */
 void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
+	ASN1_OCTET_STRING * octet_str;
+	int length;
+	unsigned char * contentString;
+    unsigned char * contentStringEncoded;
+
     if (NULL == p7s->d.sign->contents->d.data) {
         ZVAL_STRING(*signedContent, "", 1);
         return;
     }
 
-    ASN1_OCTET_STRING * octet_str = p7s->d.sign->contents->d.data;
-    int length = octet_str->length;
-    unsigned char * contentStringEncoded;
-    unsigned char * contentString = (unsigned char *) malloc(length);
+    octet_str = p7s->d.sign->contents->d.data;
+    length = octet_str->length;
+    contentString = (unsigned char *) malloc(length);
     memcpy(contentString, octet_str->data, length);
     bin_to_strhex(contentString, length, &contentStringEncoded);
     ZVAL_STRING(*signedContent, contentStringEncoded, 1);
@@ -216,26 +219,29 @@ void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
  *
  */
 void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signature) {
-    // sign time
     ASN1_TYPE * signedTime;
-                signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
     zval * datetime;
     zval * param1;
-    MAKE_STD_ZVAL(param1);
+    zval * param2;
+    zval * signer;
+	TSRMLS_FETCH();
+
+	signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
+    
+	MAKE_STD_ZVAL(param1);
     ZVAL_STRING(param1, "ymdHisZ", 1);
 
-    zval * param2;
     MAKE_STD_ZVAL(param2);
     ZVAL_STRING(param2, signedTime->value.utctime->data, 1);
 
-    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC ) == FAILURE) {
+	//void ***tsrm_ls = TSRMLS_FETCH();
+    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC) == NULL) {
         php_error(E_WARNING, "Could not create signature datetime.");
     }
 
     add_assoc_zval(*signature, "datetime", datetime);
 
     // signer issuer
-    zval * signer;
     MAKE_STD_ZVAL(signer);
     array_init(signer);
     setSigner(p7s, signerInfo, &signer);
@@ -247,9 +253,12 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
  */
 void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer) {
     STACK_OF(X509) * certs = NULL;
-    long signerSerial = ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial);
-
+    long signerSerial;
+	long signatureSerial;
     int type;
+    int index;
+	
+	signerSerial = ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial);
     type = OBJ_obj2nid(p7s->type);
     if (type == NID_pkcs7_signed) {
         certs = p7s->d.sign->cert;
@@ -257,11 +266,10 @@ void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer) {
         certs = p7s->d.signed_and_enveloped->cert;
     }
 
-    int index;
     for (index = 0; certs && index < sk_X509_num(certs); index++) {
         X509 * x509 = sk_X509_value(certs,index);
 
-        long signatureSerial = ASN1_INTEGER_get(X509_get_serialNumber(x509));
+        signatureSerial = ASN1_INTEGER_get(X509_get_serialNumber(x509));
         if (signerSerial != signatureSerial) {
             continue;
         }
