@@ -81,9 +81,9 @@ PHP_METHOD(openssl_pkcs7, getContent) {
 PHP_METHOD(openssl_pkcs7, verify) {
     int filenameLength;
     char * filename;
-	unsigned char * contentString;
+    unsigned char * contentString;
     unsigned char * contentStringEncoded;
-	FILE * file;
+    FILE * file;
     zval * content;
     zval * result;
 
@@ -194,9 +194,9 @@ void setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
  *
  */
 void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
-	ASN1_OCTET_STRING * octet_str;
-	int length;
-	unsigned char * contentString;
+    ASN1_OCTET_STRING * octet_str;
+    int length;
+    unsigned char * contentString;
     unsigned char * contentStringEncoded;
 
     if (NULL == p7s->d.sign->contents->d.data) {
@@ -224,11 +224,11 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
     zval * param1;
     zval * param2;
     zval * signer;
-	TSRMLS_FETCH();
+    TSRMLS_FETCH();
 
-	signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
+    signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
     
-	MAKE_STD_ZVAL(param1);
+    MAKE_STD_ZVAL(param1);
     ZVAL_STRING(param1, "ymdHisZ", 1);
 
     MAKE_STD_ZVAL(param2);
@@ -253,11 +253,11 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
 void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer) {
     STACK_OF(X509) * certs = NULL;
     long signerSerial;
-	long signatureSerial;
+    long signatureSerial;
     int type;
     int index;
 	
-	signerSerial = ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial);
+    signerSerial = ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial);
     type = OBJ_obj2nid(p7s->type);
     if (type == NID_pkcs7_signed) {
         certs = p7s->d.sign->cert;
