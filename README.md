@@ -11,7 +11,7 @@ The purpose of this extension is cover the signature and content extraction on p
     cd ext
     git clone https://github.com/caioflucena/openssl_pkcs.git
     cd openssl_pkcs
-    git checkout {DESIRED_TAG} (e.g. git checkout 0.1.0)
+    git checkout {DESIRED_TAG} (e.g. git checkout 0.1.1)
 
 #### Now compile and install the extension
 
