@@ -281,13 +281,50 @@ void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer) {
  */
 void setX509EntityData(X509 * x509, zval ** entity) {
     X509_NAME * subjectName = X509_get_subject_name(x509);
-
-    // common name
+    char serial[SERIAL_NUM_LEN + 1];
     int nid = OBJ_txt2nid("CN");
     int index = X509_NAME_get_index_by_NID(subjectName, nid, -1);
     X509_NAME_ENTRY * nameEntry = X509_NAME_get_entry(subjectName, index);
+
+    getX509SerialNumber(x509, serial);
+
     add_assoc_string(*entity, "commonName", ASN1_STRING_data(X509_NAME_ENTRY_get_data(nameEntry)), 1);
-    add_assoc_long(*entity, "serialNumber", ASN1_INTEGER_get(X509_get_serialNumber(x509)));
+    //add_assoc_long(*entity, "serialNumber", ASN1_INTEGER_get(X509_get_serialNumber(x509)));
+    add_assoc_string(*entity, "serialNumber", serial, 1);
+}
+
+/**
+ *
+ */
+void getX509SerialNumber(X509 * x509, char * serialPtr) {
+    
+    ASN1_INTEGER *serial = X509_get_serialNumber(x509);
+    BIGNUM *bn = ASN1_INTEGER_to_BN(serial, NULL);
+
+    if (!bn) {
+        //printf(stderr, "unable to convert ASN1INTEGER to BN\n");
+        //return EXIT_FAILURE;
+    }
+	
+    char *tmp = BN_bn2dec(bn);
+    if (!tmp) {
+        //fprintf(stderr, "unable to convert BN to decimal string.\n");
+        BN_free(bn);
+        //return EXIT_FAILURE;
+    }
+
+    /*
+    if (strlen(tmp) >= len) {
+        //fprintf(stderr, "buffer length shorter than serial number\n");
+        BN_free(bn);
+        OPENSSL_free(tmp);
+        //return EXIT_FAILURE;
+    }
+    */
+
+    strncpy(serialPtr, tmp, SERIAL_NUM_LEN);
+    BN_free(bn);
+    OPENSSL_free(tmp);
 }
 
 /**

@@ -6,8 +6,9 @@
 #include <php.h>
 #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
-
 #include "ext/date/php_date.h"
+
+#define SERIAL_NUM_LEN 1000
 
 zend_class_entry * openssl_pkcs_p7s_ce;
 
@@ -48,5 +49,6 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
 void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer);
 void setX509EntityData(X509 * x509, zval ** entity);
 void bin_to_strhex(unsigned char *bin, unsigned int binsz, unsigned char **result);
+void getX509SerialNumber(X509 * x509, char * serialPtr);
 
 #endif
