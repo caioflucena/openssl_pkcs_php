@@ -16,7 +16,7 @@ static zend_object_handlers ikhon_pkcs7_object_handlers;
 
 void openssl_pkcs_init_p7s(TSRMLS_D);
 
-PHP_METHOD(openssl_pkcs_p7s, __construct);
+PHP_METHOD(openssl_pkcs, __construct);
 
 /** /
 typedef struct _ikhon_pkcs7_struct {

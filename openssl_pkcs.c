@@ -9,13 +9,13 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_openssl_pkcs.h"
-
 #include "p7s.h"
 
 static int le_openssl_pkcs;
 
 PHP_MINIT_FUNCTION(openssl_pkcs) {
     openssl_pkcs_init_p7s(TSRMLS_C);
+    openssl_pkcs_init_x509(TSRMLS_C);
     return SUCCESS;
 }
 
