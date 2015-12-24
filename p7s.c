@@ -283,14 +283,67 @@ void setX509EntityData(X509 * x509, zval ** entity) {
     X509_NAME * subjectName = X509_get_subject_name(x509);
     char serial[SERIAL_NUM_LEN + 1];
     int nid = OBJ_txt2nid("CN");
+    TSRMLS_FETCH();
+
     int index = X509_NAME_get_index_by_NID(subjectName, nid, -1);
     X509_NAME_ENTRY * nameEntry = X509_NAME_get_entry(subjectName, index);
 
-    getX509SerialNumber(x509, serial);
-
     add_assoc_string(*entity, "commonName", ASN1_STRING_data(X509_NAME_ENTRY_get_data(nameEntry)), 1);
-    //add_assoc_long(*entity, "serialNumber", ASN1_INTEGER_get(X509_get_serialNumber(x509)));
+
+    getX509SerialNumber(x509, serial);
     add_assoc_string(*entity, "serialNumber", serial, 1);
+
+    zend_class_entry * dateTimeCE = php_date_get_date_ce();
+    char * validityNotBefore = (char *)malloc(sizeof(char)*128);
+    zval * validityNotBeforeAttribute;
+    zval * validityNotBeforeDateParam;
+    ASN1_TIME *not_before = X509_get_notBefore(x509);
+    int rc;
+    BIO *b = BIO_new(BIO_s_mem());
+    rc = ASN1_TIME_print(b, not_before);
+    if (rc <= 0) {
+        BIO_free(b);
+        php_error(E_ERROR, "Could not read X509 validity not before.");
+    }
+    rc = BIO_gets(b, validityNotBefore, 128);
+    if (rc <= 0) {
+        BIO_free(b);
+        php_error(E_ERROR, "Could not read X509 validity not before.");
+    }
+    BIO_free(b);
+    MAKE_STD_ZVAL(validityNotBeforeAttribute);
+    object_init_ex(validityNotBeforeAttribute, dateTimeCE);
+    MAKE_STD_ZVAL(validityNotBeforeDateParam);
+    ZVAL_STRING(validityNotBeforeDateParam, validityNotBefore, 1);
+    free(validityNotBefore);
+    add_assoc_zval(*entity, "validityNotBefore", validityNotBeforeDateParam);
+    //if (zend_call_method(&validityNotBeforeAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(&dateTimeCE->constructor->common.function_name), NULL, 1, validityNotBeforeDateParam TSRMLS_CC) == EXIT_FAILURE) {
+    //    php_error(E_WARNING, "Could not create validity not before datetime object.");
+    //}
+    //add_assoc_zval(*entity, "validityNotBefore", validityNotBeforeDateParam);
+
+    char * validityNotAfter = (char *)malloc(sizeof(char)*128);
+    zval * validityNotAfterAttribute;
+    zval * validityNotAfterDateParam;
+    ASN1_TIME *not_after = X509_get_notAfter(x509);
+    BIO *c = BIO_new(BIO_s_mem());
+    rc = ASN1_TIME_print(c, not_before);
+    if (rc <= 0) {
+        BIO_free(c);
+        php_error(E_ERROR, "Could not read X509 validity not before.");
+    }
+    rc = BIO_gets(c, validityNotAfter, 128);
+    if (rc <= 0) {
+        BIO_free(c);
+        php_error(E_ERROR, "Could not read X509 validity not before.");
+    }
+    BIO_free(c);
+    MAKE_STD_ZVAL(validityNotAfterAttribute);
+    object_init_ex(validityNotAfterAttribute, dateTimeCE);
+    MAKE_STD_ZVAL(validityNotAfterDateParam);
+    ZVAL_STRING(validityNotAfterDateParam, validityNotAfter, 1);
+    free(validityNotAfter);
+    add_assoc_zval(*entity, "validityNotAfter", validityNotAfterDateParam);
 }
 
 /**
