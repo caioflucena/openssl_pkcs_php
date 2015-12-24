@@ -20,21 +20,6 @@
 /**
  *
  */
-zend_class_entry * openssl_pkcs_x509_ce;
-
-/**
- *
- */
-void openssl_pkcs_init_x509(TSRMLS_D);
-
-/**
- *
- */
-PHP_METHOD(openssl_pkcs_x509, __construct);
-
-/**
- *
- */
 int getX509FromFile(char * file, X509 * x509);
 int getVersion(X509 * x509, long * version);
 int getSerialNumber(X509 * x509, char * serialNumber);

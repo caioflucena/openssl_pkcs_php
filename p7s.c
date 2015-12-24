@@ -224,6 +224,10 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
     zval * param1;
     zval * param2;
     zval * signer;
+    int type, index;
+    long signerSerial;
+    long signatureSerial;
+    //zend_class_entry * x509CE;
     TSRMLS_FETCH();
 
     signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
@@ -234,17 +238,72 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
     MAKE_STD_ZVAL(param2);
     ZVAL_STRING(param2, signedTime->value.utctime->data, 1);
 
-    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC) == NULL) {
+    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC) == EXIT_FAILURE) {
         php_error(E_WARNING, "Could not create signature datetime.");
     }
 
     add_assoc_zval(*signature, "datetime", datetime);
 
     // signer issuer
+    /*
     MAKE_STD_ZVAL(signer);
     array_init(signer);
     setSigner(p7s, signerInfo, &signer);
     add_assoc_zval(*signature, "signer", signer);
+    */
+
+    zval * x509Param;
+    //zend_class_entry * x509CE;
+    zend_class_entry * x509CE = php_openssl_pkcs_get_x509_ce();
+    if (NULL == x509CE) {
+        php_error(E_WARNING, "CE VAZIA");
+    }
+    //if (zend_lookup_class("openssl_pkcs_x509_ce", strlen("openssl_pkcs_x509_ce"), x509CE TSRMLS_DC) == EXIT_FAILURE) {
+    //    php_error(E_WARNING, "Could not find Openssl\\X509 class.");
+    //}
+
+    //MAKE_STD_ZVAL(signer);
+    //object_init_ex(signer, x509CE);
+
+    STACK_OF(X509) * certs = NULL;
+    type = OBJ_obj2nid(p7s->type);
+    if (type == NID_pkcs7_signed) {
+        certs = p7s->d.sign->cert;
+    } else if(type == NID_pkcs7_signedAndEnveloped) {
+        certs = p7s->d.signed_and_enveloped->cert;
+    }
+    FILE * file = fopen("/tmp/x509.pem", "w");
+    if (NULL == file) {
+        php_error(E_WARNING, "invalid file.");
+        return;
+    }
+    signerSerial = ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial);
+    for (index = 0; certs && index < sk_X509_num(certs); index++) {
+        X509 * x509 = sk_X509_value(certs,index);
+
+        signatureSerial = ASN1_INTEGER_get(X509_get_serialNumber(x509));
+        if (signerSerial != signatureSerial) {
+            continue;
+        }
+
+        i2d_X509_fp(file, x509);
+        MAKE_STD_ZVAL(x509Param);
+        ZVAL_STRING(x509Param, "/tmp/x509.pem", 1);
+
+        //if (NULL == (x509CE)->constructor) {
+        //    php_error(E_WARNING, "VAZIO");
+        //}
+        //if (zend_call_method(&signer, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param TSRMLS_CC) == EXIT_FAILURE) {
+        //    php_error(E_WARNING, "Could not create signer object.");
+        //}
+        //if (zend_call_method(&validityNotAfterAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotAfterDateParam TSRMLS_CC) == EXIT_FAILURE) {
+        //add_assoc_zval(*signature, "signer", signer);
+        add_assoc_string(*signature, "signer", "asd", 1);
+        //break;
+    }
+    fclose(file);
+    //add_assoc_string(*signature, "signer", "asd", 1);
+
 }
 
 /**

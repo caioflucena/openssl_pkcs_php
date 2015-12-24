@@ -58,7 +58,6 @@ int getSignatureAlgorithm(X509 * x509, char * signatureAlgorithm) {
     if (NULL == sslbuf) {// strlen(sslbuf) > 3) {
         return EXIT_FAILURE;
     }
-    //strncpy(signatureAlgorithm, sslbuf, sizeof(sslbuf));
     strncpy(signatureAlgorithm, sslbuf, strlen(sslbuf));
     
     return EXIT_SUCCESS;

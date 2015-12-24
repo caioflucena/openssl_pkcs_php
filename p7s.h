@@ -7,6 +7,7 @@
 #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
 #include "ext/date/php_date.h"
+#include "x509.h"
 
 #define SERIAL_NUM_LEN 1000
 
