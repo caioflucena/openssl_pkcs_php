@@ -5,13 +5,24 @@ int getX509FromFile(char * file, X509 * x509) {
           bio = BIO_new(BIO_s_file());
     BIO_read_filename(bio, file);
     if (NULL == bio) {
+        BIO_free(bio);
         return EXIT_FAILURE;
     }
+
     X509 * out = PEM_read_bio_X509(bio,NULL,0,NULL);
+    if (NULL == out) {
+        X509_free(out);
+        BIO_free(bio);
+        return EXIT_FAILURE;
+    }
     memcpy(x509, out, sizeof(X509));
     if (NULL == x509) {
+        X509_free(out);
+        BIO_free(bio);
         return EXIT_FAILURE;
     }
+
+    //X509_free(out);
     BIO_free(bio);
     return EXIT_SUCCESS;
 }

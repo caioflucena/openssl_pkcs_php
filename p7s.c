@@ -1,178 +1,133 @@
-#include "p7s.h"
+#include "php_p7s.h"
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_construct, 0, 0, 0)
-    ZEND_ARG_INFO(0, filename)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_verify, 0, 0, 1)
-    ZEND_ARG_INFO(0, filename)
-ZEND_END_ARG_INFO()
-
-PHP_METHOD(openssl_pkcs7, __construct) {
-    int filenameLength;
-    char * filename;
-    FILE * file;
-    PKCS7 * p7s = NULL;
-    zval * signatures;
-    zval * signedContent;
-
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filenameLength) == FAILURE) {
-        return;
+/**
+ *
+ */
+int getPkcs7FromFile(char * file, PKCS7 * p7s) {
+    BIO * bio = NULL;
+          bio = BIO_new(BIO_s_file());
+    BIO_read_filename(bio, file);
+    if (bio == NULL) {
+        BIO_free(bio);
+        return EXIT_FAILURE;
     }
 
-    // cant find file
-    file = fopen(filename, "r");
-    if (NULL == file) {
-        php_error(E_ERROR, "Invalid File.");
-        return;
-    } else {
-        fclose(file);
+    PKCS7 * out = d2i_PKCS7_bio(bio, NULL);
+    if (NULL == out) {
+        BIO_free(bio);
+        return EXIT_FAILURE;
     }
-
-    // initialize openssl pkcs7
-    if (!getPkcs7Bio(filename, &p7s) || NULL == p7s) {
-        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Invalid PKCS7 File.", 0 TSRMLS_CC);
-        return;
-    }
-
-    // covering unexpected behaviours
+    memcpy(p7s, out, sizeof(PKCS7));
     if (NULL == p7s) {
-        php_error(E_ERROR, "Unexpected Error!");
-        return;
+        PKCS7_free(out);
+        BIO_free(bio);
+        return EXIT_FAILURE;
     }
 
-    // set signatures
-    MAKE_STD_ZVAL(signatures);
-    array_init(signatures);
-    setP7sSignatures(p7s, &signatures);
-    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "signature", sizeof("signature")-1, signatures TSRMLS_CC);
+    //PKCS7_free(out);
+    BIO_free(bio);
+    return EXIT_SUCCESS;
+}
 
-    // set content info
-    MAKE_STD_ZVAL(signedContent);
-    setP7sSignedContent(p7s, &signedContent);
-    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, signedContent TSRMLS_CC);
-
-    if (p7s != NULL) {
-        PKCS7_free(p7s);
+int getSignersInfo(PKCS7 * p7s, STACK_OF(PKCS7_SIGNER_INFO) ** signersInfo) {
+    *signersInfo = PKCS7_get_signer_info(p7s);
+    if (NULL == signersInfo) {
+        return EXIT_FAILURE;
     }
+    return EXIT_SUCCESS;
+}
+
+int getSignersInfoCount(STACK_OF(PKCS7_SIGNER_INFO) * signersInfo, int * numSignerInfo) {
+    *numSignerInfo = sk_PKCS7_SIGNER_INFO_num(signersInfo);
+    if (NULL == numSignerInfo || -1 == *numSignerInfo) {
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
+int getSignerInfo(STACK_OF(PKCS7_SIGNER_INFO) * signersInfo, int * index, PKCS7_SIGNER_INFO ** signerInfo) {
+    *signerInfo = sk_PKCS7_SIGNER_INFO_value(signersInfo, *index);
+    if (NULL == signerInfo) {
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
+int getSignatureDatetimeString(PKCS7_SIGNER_INFO * signerInfo, unsigned char ** datetime) {
+    ASN1_TYPE * signedTime;
+
+    signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
+    if (NULL == signedTime) {
+        return EXIT_FAILURE;
+    }
+    *datetime = signedTime->value.utctime->data;
+    if (NULL == datetime) {
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
+int getSignatureX509(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, X509 ** x509) {
+    STACK_OF(X509) * certs = NULL;
+    long signerSerial;
+    long signatureSerial;
+    int type;
+    int index;
+    signerSerial = ASN1_INTEGER_get(signerInfo->issuer_and_serial->serial);
+    type = OBJ_obj2nid(p7s->type);
+    if (type == NID_pkcs7_signed) {
+        certs = p7s->d.sign->cert;
+    } else if(type == NID_pkcs7_signedAndEnveloped) {
+        certs = p7s->d.signed_and_enveloped->cert;
+    }
+    for (index = 0; certs && index < sk_X509_num(certs); index++) {
+        X509 * out = sk_X509_value(certs,index);
+        signatureSerial = ASN1_INTEGER_get(X509_get_serialNumber(*x509));
+        if (signerSerial != signatureSerial) {
+            continue;
+        }
+        *x509 = out;
+    }
+
+    if (NULL == x509) {
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
 }
 
 /**
  *
- */
-PHP_METHOD(openssl_pkcs7, getSignature) {
-    zval * result;
-           result = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "signature", sizeof("signature")-1, 1 TSRMLS_CC);
-    RETURN_ZVAL(result, 1, 0);
-}
-
-/**
- *
- */
-PHP_METHOD(openssl_pkcs7, getContent) {
-    zval * result;
-           result = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, 1 TSRMLS_CC);
-    RETURN_ZVAL(result, 1, 0);
-}
-
-/**
- *
- */
-PHP_METHOD(openssl_pkcs7, verify) {
-    int filenameLength;
-    char * filename;
+ * /
+int setSignedContent(PKCS7 * p7s, unsigned char ** signedContent) {
+    ASN1_OCTET_STRING * octet_str;
+    int length;
     unsigned char * contentString;
     unsigned char * contentStringEncoded;
-    FILE * file;
-    zval * content;
-    zval * result;
 
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filenameLength) == FAILURE) {
-        return;
-    }
-	
-    file = fopen(filename, "rb");
-    if (NULL == file) {
-        php_error(E_WARNING, "invalid file.");
-        return;
-    } else {
-        int length;
-
-        fseek(file, 0L, SEEK_END);
-        length = ftell(file);
-        fseek(file, 0L, SEEK_SET);
-
-        contentString = (unsigned char *) malloc(length);
-        fread(contentString, length, 1, file); 
-        bin_to_strhex(contentString, length, &contentStringEncoded);
-        free(contentString);
-    }
-    fclose(file);
-
-    content = zend_read_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, 1 TSRMLS_CC);
-    if (NULL == content->value.str.val) {
-        php_error(E_WARNING, "invalid content.");
-        return;
+    if (NULL == p7s->d.sign->contents->d.data) {
+        return EXIT_FAILURE;
     }
 
-    MAKE_STD_ZVAL(result);
-    if (strcmp(contentStringEncoded, content->value.str.val) == 0) {
-        ZVAL_BOOL(result, 1);
-    } else {
-        ZVAL_BOOL(result, 0);
+    octet_str = p7s->d.sign->contents->d.data;
+    length = octet_str->length;
+    contentString = (unsigned char *) malloc(length);
+    //signedContent = (unsigned char **) malloc(octet_str->length);
+    //memset(signedContent, 0, octet_str->length);
+    php_error(E_WARNING, "Oxi asd %s", octet_str->data);
+    memcpy(contentString, octet_str->data, length);
+    bin_to_strhex(octet_str->data, octet_str->length, signedContent);
+
+    if (NULL == *signedContent) {
+        return EXIT_FAILURE;
     }
-    free(contentStringEncoded);
+    php_error(E_ERROR, "Oxi asd %s", contentStringEncoded);
 
-    RETURN_ZVAL(result, 1, 0);
-}
-
-/**
- * 
- */
-static zend_function_entry openssl_pkcs_p7s_methods[] = {
-    PHP_ME(openssl_pkcs7, __construct, arginfo_openssl_pkcs_construct, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
-    PHP_ME(openssl_pkcs7, getSignature, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
-    PHP_ME(openssl_pkcs7, getContent, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
-    PHP_ME(openssl_pkcs7, verify, arginfo_openssl_pkcs_verify, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
-    {NULL, NULL, NULL}
-};
-
-void openssl_pkcs_init_p7s(TSRMLS_D) {
-    zend_class_entry ce;
-
-    INIT_CLASS_ENTRY(ce, "Openssl\\P7s", openssl_pkcs_p7s_methods);
-    openssl_pkcs_p7s_ce = zend_register_internal_class(&ce TSRMLS_CC);
-    // flags
-    openssl_pkcs_p7s_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
-    // attributes
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "signature", sizeof("signature")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    return EXIT_SUCCESS;
 }
 
 /**
  *
- */
-int getPkcs7Bio(char * filename, PKCS7 ** p7s) {
-    BIO * in = NULL;
-          in = BIO_new(BIO_s_file());
-    BIO_read_filename(in, filename);
-    if (in == NULL) {
-        return 0;
-    }
-
-    *p7s = d2i_PKCS7_bio(in, NULL);
-    BIO_free(in);
-
-    if (NULL ==  p7s) {
-        return 0;
-    }
-
-    return 1;
-}
-
-/**
- *
- */
+ * /
 void setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
     STACK_OF(PKCS7_SIGNER_INFO) * signerStack = PKCS7_get_signer_info(p7s);
     int numSignerInfo = sk_PKCS7_SIGNER_INFO_num(signerStack);
@@ -192,7 +147,7 @@ void setP7sSignatures(PKCS7 * p7s, zval ** signatures) {
 
 /**
  *
- */
+ * /
 void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
     ASN1_OCTET_STRING * octet_str;
     int length;
@@ -217,7 +172,7 @@ void setP7sSignedContent(PKCS7 * p7s, zval ** signedContent) {
 
 /**
  *
- */
+ * /
 void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signature) {
     ASN1_TYPE * signedTime;
     zval * datetime;
@@ -227,8 +182,7 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
     int type, index;
     long signerSerial;
     long signatureSerial;
-    //zend_class_entry * x509CE;
-    TSRMLS_FETCH();
+    zend_class_entry * x509CE;
 
     signedTime = PKCS7_get_signed_attribute(signerInfo, NID_pkcs9_signingTime);
     
@@ -238,32 +192,20 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
     MAKE_STD_ZVAL(param2);
     ZVAL_STRING(param2, signedTime->value.utctime->data, 1);
 
-    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2 TSRMLS_CC) == EXIT_FAILURE) {
+    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &datetime, 2, param1, param2) == EXIT_FAILURE) {
         php_error(E_WARNING, "Could not create signature datetime.");
     }
 
     add_assoc_zval(*signature, "datetime", datetime);
 
-    // signer issuer
-    /*
-    MAKE_STD_ZVAL(signer);
-    array_init(signer);
-    setSigner(p7s, signerInfo, &signer);
-    add_assoc_zval(*signature, "signer", signer);
-    */
-
     zval * x509Param;
-    //zend_class_entry * x509CE;
-    zend_class_entry * x509CE = php_openssl_pkcs_get_x509_ce();
+    x509CE = php_openssl_pkcs_get_x509_ce();
     if (NULL == x509CE) {
         php_error(E_WARNING, "CE VAZIA");
     }
-    //if (zend_lookup_class("openssl_pkcs_x509_ce", strlen("openssl_pkcs_x509_ce"), x509CE TSRMLS_DC) == EXIT_FAILURE) {
-    //    php_error(E_WARNING, "Could not find Openssl\\X509 class.");
-    //}
 
-    //MAKE_STD_ZVAL(signer);
-    //object_init_ex(signer, x509CE);
+    MAKE_STD_ZVAL(signer);
+    object_init_ex(signer, x509CE);
 
     STACK_OF(X509) * certs = NULL;
     type = OBJ_obj2nid(p7s->type);
@@ -288,27 +230,21 @@ void setP7sSignature(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signat
 
         i2d_X509_fp(file, x509);
         MAKE_STD_ZVAL(x509Param);
-        ZVAL_STRING(x509Param, "/tmp/x509.pem", 1);
+        //ZVAL_STRING(x509Param, "/tmp/x509.pem", 1);
+        ZVAL_STRING(x509Param, "/var/www/pkcs/certificate.crt", 1);
 
-        //if (NULL == (x509CE)->constructor) {
-        //    php_error(E_WARNING, "VAZIO");
-        //}
-        //if (zend_call_method(&signer, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param TSRMLS_CC) == EXIT_FAILURE) {
-        //    php_error(E_WARNING, "Could not create signer object.");
-        //}
-        //if (zend_call_method(&validityNotAfterAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotAfterDateParam TSRMLS_CC) == EXIT_FAILURE) {
-        //add_assoc_zval(*signature, "signer", signer);
-        add_assoc_string(*signature, "signer", "asd", 1);
-        //break;
+        if (zend_call_method(&signer, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL) == EXIT_FAILURE) {
+            php_error(E_WARNING, "Could not create signer object.");
+        }
+        add_assoc_zval_ex(*signature, "signer", strlen("signer"), signer);
+        break;
     }
     fclose(file);
-    //add_assoc_string(*signature, "signer", "asd", 1);
-
 }
 
 /**
  *
- */
+ * /
 void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer) {
     STACK_OF(X509) * certs = NULL;
     long signerSerial;
@@ -337,7 +273,7 @@ void setSigner(PKCS7 * p7s, PKCS7_SIGNER_INFO * signerInfo, zval ** signer) {
 
 /**
  *
- */
+ * /
 void setX509EntityData(X509 * x509, zval ** entity) {
     X509_NAME * subjectName = X509_get_subject_name(x509);
     char serial[SERIAL_NUM_LEN + 1];
@@ -354,7 +290,7 @@ void setX509EntityData(X509 * x509, zval ** entity) {
 
 /**
  *
- */
+ * /
 void getX509SerialNumber(X509 * x509, char * serialPtr) {
     
     ASN1_INTEGER *serial = X509_get_serialNumber(x509);
@@ -372,37 +308,9 @@ void getX509SerialNumber(X509 * x509, char * serialPtr) {
         //return EXIT_FAILURE;
     }
 
-    /*
-    if (strlen(tmp) >= len) {
-        //fprintf(stderr, "buffer length shorter than serial number\n");
-        BN_free(bn);
-        OPENSSL_free(tmp);
-        //return EXIT_FAILURE;
-    }
-    */
-
     strncpy(serialPtr, tmp, SERIAL_NUM_LEN);
     BN_free(bn);
     OPENSSL_free(tmp);
 }
 
-/**
- *
- */
-void bin_to_strhex(unsigned char *bin, unsigned int binsz, unsigned char **result) {
-    char hex_str[]= "0123456789abcdef";
-    unsigned int  i;
-
-    * result = (char *)malloc(binsz * 2 + 1);
-    (* result)[binsz * 2] = 0;
-
-    if (!binsz) {
-        return;
-    }
-
-    for (i = 0; i < binsz; i++) {
-        (* result)[i * 2 + 0] = hex_str[(bin[i] >> 4) & 0x0F];
-        (* result)[i * 2 + 1] = hex_str[(bin[i]     ) & 0x0F];
-    }  
-}
-
+/**/

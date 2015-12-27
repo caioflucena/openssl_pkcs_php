@@ -28,6 +28,7 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
 
     x509 = (X509 *) malloc(sizeof(X509));
     if (getX509FromFile(file, x509) == EXIT_FAILURE) {
+        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read the x509 file.", 0 TSRMLS_CC);
         php_error(E_ERROR, "Could not read the X509.");
     }
 
@@ -90,35 +91,6 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
 /**
  *
  */
-zend_object_value openssl_pkcs_x509_create_object_handler(zend_class_entry *class_type)
-{
-        zend_object_value retval;
-	php_x509_obj *intern;
-	zval *tmp;
-
-	intern = (php_x509_obj *) emalloc(sizeof(php_x509_obj));
-        memset(intern, 0, sizeof(php_x509_obj));
-        zend_object_std_init(&intern->std, class_type TSRMLS_CC);
-	object_properties_init((zend_object*) &(intern->std), class_type);
-
-	retval.handle = zend_objects_store_put(intern, (zend_objects_store_dtor_t) zend_objects_destroy_object, free_php_x509_obj, NULL TSRMLS_CC);
-	retval.handlers = &openssl_pkcs_x509_object_handlers;
-
-	return retval;
-}
-void free_php_x509_obj(void *object TSRMLS_DC)
-{
-    php_x509_obj *obj = (php_x509_obj *)object;
- 
-    zend_hash_destroy(obj->std.properties);
-    FREE_HASHTABLE(obj->std.properties);
- 
-    efree(obj);
-}
-
-/**
- *
- */
 zend_class_entry * php_openssl_pkcs_get_x509_ce(void) {
     return openssl_pkcs_x509_ce;
 }
@@ -139,9 +111,6 @@ void openssl_pkcs_init_x509(TSRMLS_D) {
 
     INIT_CLASS_ENTRY(ce, "Openssl\\X509", openssl_pkcs_x509_methods);
     openssl_pkcs_x509_ce = zend_register_internal_class(&ce TSRMLS_CC);
-    ce.create_object = openssl_pkcs_x509_object_handlers;
-    memcpy(&openssl_pkcs_x509_create_object_handler, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-    openssl_pkcs_x509_create_object_handler.clone_obj = NULL;
 
     // flags
     openssl_pkcs_x509_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
