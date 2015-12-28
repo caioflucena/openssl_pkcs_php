@@ -24,6 +24,8 @@ PHP_METHOD(openssl_pkcs7, __construct) {
         zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read p7s file.", 0 TSRMLS_CC);
     }
 
+    // certificates
+    updatePropertyCertificates(getThis(), p7s);
     updatePropertySignatures(getThis(), p7s);
     updatePropertyIsDetached(getThis(), 1);
 
@@ -131,6 +133,7 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
     // flags
     openssl_pkcs_p7s_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "certificates", sizeof("certificates")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     zend_declare_property_null(openssl_pkcs_p7s_ce, "signatures", sizeof("signatures")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     //zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     zend_declare_property_null(openssl_pkcs_p7s_ce, "isDetached", sizeof("isDetached")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
@@ -139,6 +142,69 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
 /**
  *
  */
+void updatePropertyCertificates(void * object, PKCS7 * p7s) {
+    zend_class_entry * x509CE = php_openssl_pkcs_get_x509_ce();
+    STACK_OF(X509) * certificates;
+    zval * certificatesAttribute;
+
+    if (getStackOfX509(p7s, &certificates) == EXIT_FAILURE) {
+        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read certificate info.", 0 TSRMLS_CC);
+    }
+
+    MAKE_STD_ZVAL(certificatesAttribute);
+    array_init(certificatesAttribute);
+
+    int i;
+    for (i = 0; certificates && i < sk_X509_num(certificates); i++) {
+        X509 * x509 = sk_X509_value(certificates, i);
+
+        zval * certificate;
+        MAKE_STD_ZVAL(certificate);
+        object_init_ex(certificate, x509CE);
+
+        zval * x509Param;
+        MAKE_STD_ZVAL(x509Param);
+        ZVAL_STRING(x509Param, "/var/www/html/pkcs/certificate.crt", 1);
+
+        if (NULL == RESOURCE_X509) {
+            RESOURCE_X509 = malloc(sizeof(X509));
+        }
+
+        if (NULL == x509) {
+            php_error(E_ERROR, "fudeu");
+        }
+        RESOURCE_X509 = x509;
+        if (NULL == RESOURCE_X509) {
+            php_error(E_ERROR, "fudeu!!");
+        }
+        /*
+        zval * teste;
+        zvalue_value * testeValue = malloc(sizeof(zvalue_value));
+        testeValue->ht;
+        MAKE_STD_ZVAL(teste);
+        teste->type = IS_RESOURCE;
+        teste->value = *testeValue;
+        */
+
+        //ZVAL_LONG(x509Param, 509);
+        //ZVAL_STRING(x509Param, &x509, 1);
+        //zend_register_resource(x509Param, x509, 0);
+        //x509Param->type = "X509";
+        //x509Param->value = x509;
+
+        //zend_throw_exception(zend_exception_get_default(TSRMLS_C), Z_STRVAL_P(x509Param), 0 TSRMLS_CC);
+
+        if (zend_call_method(&certificate, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL) == EXIT_FAILURE) {
+            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create certificate instance.", 0 TSRMLS_CC);
+        }
+        add_next_index_zval(certificatesAttribute, certificate);
+        RESOURCE_X509 = NULL;
+    }
+
+
+    zend_update_property(openssl_pkcs_p7s_ce, object, "certificates", sizeof("certificates")-1, certificatesAttribute TSRMLS_CC);
+}
+
 void updatePropertySignatures(void * object, PKCS7 * p7s) {
     int index;
     int numSignerInfo;
@@ -173,10 +239,10 @@ void updatePropertySignatures(void * object, PKCS7 * p7s) {
         }
         add_assoc_zval(signature, "datetime", signatureDatetime);
 
-        if (getSignatureSigner(p7sSignerInfo, &signatureSigner) == EXIT_FAILURE) {
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signature signer x509.", 0 TSRMLS_CC);
-        }
-        add_assoc_zval(signature, "signer", signatureSigner);
+        //if (getSignatureSigner(p7sSignerInfo, &signatureSigner) == EXIT_FAILURE) {
+        //    zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signature signer x509.", 0 TSRMLS_CC);
+        //}
+        //add_assoc_zval(signature, "signer", signatureSigner);
 
         add_next_index_zval(signatures, signature);
     }
@@ -223,9 +289,9 @@ int getSignatureSigner(PKCS7_SIGNER_INFO * p7sSignerInfo, zval ** signatureSigne
     object_init_ex(*signatureSigner, x509CE);
 
     MAKE_STD_ZVAL(x509Param);
-    ZVAL_STRING(x509Param, "/var/www/pkcs/certificate.crt", 1);
+    ZVAL_STRING(x509Param, "/var/www/html/pkcs/certificate.crt", 1);
 
-    if (zend_call_method(signatureSigner, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL TSRMLS_CC) == FAILURE) {
+    if (zend_call_method(signatureSigner, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL TSRMLS_CC) == EXIT_FAILURE) {
         return EXIT_FAILURE;
     }
 

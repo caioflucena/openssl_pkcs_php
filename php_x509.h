@@ -6,6 +6,7 @@
 #include "x509.h"
 
 extern zend_module_entry openssl_pkcs_module_entry;
+X509 * RESOURCE_X509;
 
 /**
  * 

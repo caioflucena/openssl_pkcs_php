@@ -18,6 +18,7 @@ PHP_METHOD(openssl_pkcs, __construct);
 /**
  *
  */
+void updatePropertyCertificates(void * object, PKCS7 * p7s);
 void updatePropertySignatures(void * object, PKCS7 * p7s);
 void updatePropertyIsDetached(void * object, int value);
 

@@ -29,6 +29,21 @@ int getPkcs7FromFile(char * file, PKCS7 * p7s) {
     return EXIT_SUCCESS;
 }
 
+int getStackOfX509(PKCS7 * p7s, STACK_OF(X509) ** certs) {
+    int type;
+    type = OBJ_obj2nid(p7s->type);
+    if (type == NID_pkcs7_signed) {
+        *certs = p7s->d.sign->cert;
+    } else if(type == NID_pkcs7_signedAndEnveloped) {
+        *certs = p7s->d.signed_and_enveloped->cert;
+    }
+
+    if (NULL == certs) {
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
 int getSignersInfo(PKCS7 * p7s, STACK_OF(PKCS7_SIGNER_INFO) ** signersInfo) {
     *signersInfo = PKCS7_get_signer_info(p7s);
     if (NULL == signersInfo) {
