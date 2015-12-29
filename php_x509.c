@@ -6,7 +6,7 @@
 PHP_METHOD(openssl_pkcs_x509, __construct) {
     int len;
     char * file;
-    void * param;
+    zval * param;
     X509 * x509;
     long version;
     zval * versionAttribute;
@@ -23,17 +23,17 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
     zend_class_entry * dateTimeCE;
     TSRMLS_FETCH();
 
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &param, &len) == FAILURE) {
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|r", &file, &len, &param) == FAILURE) {
         return;
     }
 
-    if (NULL != RESOURCE_X509) {
-        x509 = RESOURCE_X509;
-    } else {
+    if (0 < len) {
         x509 = (X509 *) malloc(sizeof(X509));
-        if (getX509FromFile(param, x509) == EXIT_FAILURE) {
+        if (getX509FromFile(file, x509) == EXIT_FAILURE) {
             zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read the x509 file.", 0 TSRMLS_CC);
         }
+    } else {
+        ZEND_FETCH_RESOURCE(x509, X509*, &param, -1, PHP_OPENSSL_PKCS_X509_RESOURCE_NAME, le_openssl_x509_resource);
     }
 
     if (getVersion(x509, &version) == EXIT_FAILURE) {

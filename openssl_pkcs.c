@@ -14,8 +14,11 @@
 static int le_openssl_pkcs;
 
 PHP_MINIT_FUNCTION(openssl_pkcs) {
+    // Classes
     openssl_pkcs_init_p7s(TSRMLS_C);
     openssl_pkcs_init_x509(TSRMLS_C);
+    // resources
+    le_openssl_x509_resource = zend_register_list_destructors_ex(NULL, NULL, PHP_OPENSSL_PKCS_X509_RESOURCE_NAME, module_number);
     return SUCCESS;
 }
 

@@ -164,43 +164,19 @@ void updatePropertyCertificates(void * object, PKCS7 * p7s) {
 
         zval * x509Param;
         MAKE_STD_ZVAL(x509Param);
-        ZVAL_STRING(x509Param, "/var/www/html/pkcs/certificate.crt", 1);
 
-        if (NULL == RESOURCE_X509) {
-            RESOURCE_X509 = malloc(sizeof(X509));
-        }
+        zval * fileParam;
+        MAKE_STD_ZVAL(fileParam);
+        ZVAL_STRING(fileParam, "", 1);
 
-        if (NULL == x509) {
-            php_error(E_ERROR, "fudeu");
-        }
-        RESOURCE_X509 = x509;
-        if (NULL == RESOURCE_X509) {
-            php_error(E_ERROR, "fudeu!!");
-        }
-        /*
-        zval * teste;
-        zvalue_value * testeValue = malloc(sizeof(zvalue_value));
-        testeValue->ht;
-        MAKE_STD_ZVAL(teste);
-        teste->type = IS_RESOURCE;
-        teste->value = *testeValue;
-        */
+        int resourceID;
+        resourceID = ZEND_REGISTER_RESOURCE(x509Param, x509, le_openssl_x509_resource);
 
-        //ZVAL_LONG(x509Param, 509);
-        //ZVAL_STRING(x509Param, &x509, 1);
-        //zend_register_resource(x509Param, x509, 0);
-        //x509Param->type = "X509";
-        //x509Param->value = x509;
-
-        //zend_throw_exception(zend_exception_get_default(TSRMLS_C), Z_STRVAL_P(x509Param), 0 TSRMLS_CC);
-
-        if (zend_call_method(&certificate, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL) == EXIT_FAILURE) {
+        if (zend_call_method(&certificate, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 2, fileParam, x509Param) == EXIT_FAILURE) {
             zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create certificate instance.", 0 TSRMLS_CC);
         }
         add_next_index_zval(certificatesAttribute, certificate);
-        RESOURCE_X509 = NULL;
     }
-
 
     zend_update_property(openssl_pkcs_p7s_ce, object, "certificates", sizeof("certificates")-1, certificatesAttribute TSRMLS_CC);
 }
@@ -291,7 +267,7 @@ int getSignatureSigner(PKCS7_SIGNER_INFO * p7sSignerInfo, zval ** signatureSigne
     MAKE_STD_ZVAL(x509Param);
     ZVAL_STRING(x509Param, "/var/www/html/pkcs/certificate.crt", 1);
 
-    if (zend_call_method(signatureSigner, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL TSRMLS_CC) == EXIT_FAILURE) {
+    if (zend_call_method(signatureSigner, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL TSRMLS_CC) == NULL) {
         return EXIT_FAILURE;
     }
 

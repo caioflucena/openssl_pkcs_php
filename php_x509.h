@@ -5,8 +5,10 @@
 #include <zend_exceptions.h>
 #include "x509.h"
 
+#define PHP_OPENSSL_PKCS_X509_RESOURCE_NAME "X509 Data"
+
 extern zend_module_entry openssl_pkcs_module_entry;
-X509 * RESOURCE_X509;
+static int le_openssl_x509_resource;
 
 /**
  * 
