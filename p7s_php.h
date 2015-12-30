@@ -1,13 +1,13 @@
 #ifndef PHP_OPENSSL_PKCS_P7S_H
 #define PHP_OPENSSL_PKCS_P7S_H
 
+#include <php.h>
 #include <zend_API.h>
 #include <zend_interfaces.h>
 #include <zend_exceptions.h>
-#include <php.h>
 #include "ext/date/php_date.h"
+#include "x509_php.h"
 #include "p7s.h"
-#include "x509.php.h"
 
 zend_class_entry * openssl_pkcs_p7s_ce;
 

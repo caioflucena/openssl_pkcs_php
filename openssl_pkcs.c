@@ -8,8 +8,8 @@
 #include "php.h"
 #include "php_ini.h"
 #include "ext/standard/info.h"
-#include "p7s.php.h"
-#include "x509.php.h"
+#include "p7s_php.h"
+#include "x509_php.h"
 
 static int le_openssl_pkcs;
 

@@ -1,9 +1,12 @@
 #ifndef PHP_OPENSSL_PKCS_H
 #define PHP_OPENSSL_PKCS_H
 
+#include <php.h>
 #include <zend_API.h>
 #include <zend_exceptions.h>
+#include "ext/date/php_date.h"
 #include "x509.h"
+
 
 #define PHP_OPENSSL_PKCS_X509_RESOURCE_NAME "X509 Data"
 

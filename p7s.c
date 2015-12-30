@@ -1,4 +1,4 @@
-#include "p7s.php.h"
+#include "p7s_php.h"
 
 /**
  *
