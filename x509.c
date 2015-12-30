@@ -114,3 +114,14 @@ int getValidityNotAfter(X509 * x509, char * validityNotAfter) {
     return EXIT_SUCCESS;
 }
 
+int getIssuer(X509 * x509, char * issuer) {
+    char * tmp = X509_NAME_oneline(X509_get_issuer_name(x509), NULL, 0);
+    memcpy(issuer, tmp, strlen(tmp));
+    return EXIT_SUCCESS;
+}
+
+int getSubject(X509 * x509, char * subject) {
+    char * tmp = X509_NAME_oneline(X509_get_subject_name(x509), NULL, 0);
+    memcpy(subject, tmp, strlen(tmp));
+    return EXIT_SUCCESS;
+}

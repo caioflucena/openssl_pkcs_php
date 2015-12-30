@@ -35,7 +35,22 @@ PHPAPI zend_class_entry * php_openssl_pkcs_get_x509_ce(void);
  */
 #define phpext_openssl_pkcs_ptr &openssl_pkcs_module_entry
 #define PHP_OPENSSL_PKCS_VERSION "0.1.0" /* Replace with version number for your extension */
+#define PHP_OPENSSL_PKCS_X509_ISSUER "ISSUER"
+#define PHP_OPENSSL_PKCS_X509_SUBJECT "SUBJECT"
 
+/**
+ *
+ */
+void updatePropertyPublicKeyAlgorithm(void * object, X509 * x509);
+void updatePropertyVersion(void * object, X509 * x509);
+void updatePropertySerialNumber(void * object, X509 * x509);
+void updatePropertyValidityNotBefore(void * object, X509 * x509);
+void updatePropertyValidityNotAfter(void * object, X509 * x509);
+void updatePropertyIssuerSubject(void * object, X509 * x509, char * type);
+
+/**
+ *
+ */
 #ifdef PHP_WIN32
 #	define PHP_OPENSSL_PKCS_API __declspec(dllexport)
 #elif defined(__GNUC__) && __GNUC__ >= 4

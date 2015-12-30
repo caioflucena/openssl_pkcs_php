@@ -25,9 +25,9 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     }
 
     // certificates
-    updatePropertyCertificates(getThis(), p7s);
-    updatePropertySignatures(getThis(), p7s);
     updatePropertyIsDetached(getThis(), 1);
+    updatePropertySignatures(getThis(), p7s);
+    updatePropertyCertificates(getThis(), p7s);
 
 /*
     if (setSignedContent(p7s, signedContent) == EXIT_FAILURE) {
@@ -133,10 +133,10 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
     // flags
     openssl_pkcs_p7s_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "certificates", sizeof("certificates")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "signatures", sizeof("signatures")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
-    //zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     zend_declare_property_null(openssl_pkcs_p7s_ce, "isDetached", sizeof("isDetached")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "signatures", sizeof("signatures")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "certificates", sizeof("certificates")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    //zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
 }
 
 /**
