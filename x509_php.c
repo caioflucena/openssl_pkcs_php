@@ -56,7 +56,6 @@ void openssl_pkcs_init_x509(TSRMLS_D) {
 
     INIT_CLASS_ENTRY(ce, "Openssl\\X509", openssl_pkcs_x509_methods);
     openssl_pkcs_x509_ce = zend_register_internal_class(&ce TSRMLS_CC);
-
     // flags
     openssl_pkcs_x509_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
@@ -116,7 +115,7 @@ void updatePropertyValidity(void * object, X509 * x509) {
     MAKE_STD_ZVAL(validityNotBeforeDateParam);
     ZVAL_STRING(validityNotBeforeDateParam, validityNotBefore, 1);
     free(validityNotBefore);
-    if (zend_call_method(&validityNotBeforeAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotBeforeDateParam TSRMLS_CC) == EXIT_FAILURE) {
+    if (zend_call_method(&validityNotBeforeAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotBeforeDateParam, NULL) == EXIT_FAILURE) {
         php_error(E_WARNING, "Could not create validity not before datetime object.");
     }
     add_assoc_zval(validityAttribute, "notBefore", validityNotBeforeAttribute);
@@ -130,7 +129,7 @@ void updatePropertyValidity(void * object, X509 * x509) {
     MAKE_STD_ZVAL(validityNotAfterDateParam);
     ZVAL_STRING(validityNotAfterDateParam, validityNotAfter, 1);
     free(validityNotAfter);
-    if (zend_call_method(&validityNotAfterAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotAfterDateParam TSRMLS_CC) == EXIT_FAILURE) {
+    if (zend_call_method(&validityNotAfterAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotAfterDateParam, NULL) == EXIT_FAILURE) {
         php_error(E_WARNING, "Could not create validity not after datetime object.");
     }
     add_assoc_zval(validityAttribute, "notAfter", validityNotAfterAttribute);

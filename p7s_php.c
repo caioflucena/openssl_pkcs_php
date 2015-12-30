@@ -12,8 +12,6 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     int filenameLength = 0;
     char * filename = NULL;
     PKCS7 * p7s = NULL;
-    //unsigned char ** signedContent = NULL;
-    //zval * signedContentAttribute = NULL;
 
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filenameLength) == FAILURE) {
         return;
@@ -160,6 +158,7 @@ void updatePropertyCertificates(void * object, PKCS7 * p7s) {
 
         if (zend_call_method(&certificate, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 2, fileParam, x509Param) == EXIT_FAILURE) {
             zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create certificate instance.", 0 TSRMLS_CC);
+            return;
         }
         add_next_index_zval(certificatesAttribute, certificate);
     }
