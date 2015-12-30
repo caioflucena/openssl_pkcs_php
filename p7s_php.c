@@ -29,19 +29,6 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     updatePropertySignatures(getThis(), p7s);
     updatePropertyCertificates(getThis(), p7s);
 
-/*
-    if (setSignedContent(p7s, signedContent) == EXIT_FAILURE) {
-        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signed content file.", 0 TSRMLS_CC);
-    }
-    //MAKE_STD_ZVAL(signedContentAttribute);
-    if (NULL == *signedContent) {
-        php_error(E_ERROR, "Oxi %s", *signedContent);
-
-    }
-    php_error(E_ERROR, "size %s", *signedContent);
-    //ZVAL_STRING(signedContentAttribute, signedContent, 1);
-    //zend_update_property(openssl_pkcs_p7s_ce, getThis(), "content", sizeof("content")-1, signedContentAttribute TSRMLS_CC);
-*/
     free(p7s);
 }
 
@@ -136,7 +123,6 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
     zend_declare_property_null(openssl_pkcs_p7s_ce, "isDetached", sizeof("isDetached")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     zend_declare_property_null(openssl_pkcs_p7s_ce, "signatures", sizeof("signatures")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     zend_declare_property_null(openssl_pkcs_p7s_ce, "certificates", sizeof("certificates")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
-    //zend_declare_property_null(openssl_pkcs_p7s_ce, "content", sizeof("content")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
 }
 
 /**
@@ -214,11 +200,6 @@ void updatePropertySignatures(void * object, PKCS7 * p7s) {
             zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signature datetime info.", 0 TSRMLS_CC);
         }
         add_assoc_zval(signature, "datetime", signatureDatetime);
-
-        //if (getSignatureSigner(p7sSignerInfo, &signatureSigner) == EXIT_FAILURE) {
-        //    zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signature signer x509.", 0 TSRMLS_CC);
-        //}
-        //add_assoc_zval(signature, "signer", signatureSigner);
 
         add_next_index_zval(signatures, signature);
     }

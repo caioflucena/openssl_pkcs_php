@@ -44,11 +44,11 @@ PHPAPI zend_class_entry * php_openssl_pkcs_get_x509_ce(void);
 /**
  *
  */
-void updatePropertyPublicKeyAlgorithm(void * object, X509 * x509);
 void updatePropertyVersion(void * object, X509 * x509);
 void updatePropertySerialNumber(void * object, X509 * x509);
 void updatePropertyValidity(void * object, X509 * x509);
 void updatePropertyIssuerSubject(void * object, X509 * x509, char * type);
+void updatePropertySubjectPublicKeyInfo(void * object, X509 * x509);
 
 /**
  *

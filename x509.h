@@ -4,6 +4,7 @@
 /**
  *
  */
+#include <string.h>
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>

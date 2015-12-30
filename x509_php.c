@@ -23,12 +23,12 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
         ZEND_FETCH_RESOURCE(x509, X509*, &param, -1, PHP_OPENSSL_PKCS_X509_RESOURCE_NAME, le_openssl_x509_resource);
     }
 
-    updatePropertyPublicKeyAlgorithm(getThis(), x509);
     updatePropertyVersion(getThis(), x509);
     updatePropertySerialNumber(getThis(), x509);
     updatePropertyValidity(getThis(), x509);
     updatePropertyIssuerSubject(getThis(), x509, PHP_OPENSSL_PKCS_X509_ISSUER);
     updatePropertyIssuerSubject(getThis(), x509, PHP_OPENSSL_PKCS_X509_SUBJECT);
+    updatePropertySubjectPublicKeyInfo(getThis(), x509);
 
     free(x509);
 }
@@ -62,22 +62,10 @@ void openssl_pkcs_init_x509(TSRMLS_D) {
     // attributes
     zend_declare_property_null(openssl_pkcs_x509_ce, "version", sizeof("version")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "serialNumber", sizeof("serialNumber")-1, ZEND_ACC_PRIVATE);
-    zend_declare_property_null(openssl_pkcs_x509_ce, "publicKeyAlgorithm", sizeof("publicKeyAlgorithm")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "validity", sizeof("validity")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "issuer", sizeof("issuer")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "subject", sizeof("subject")-1, ZEND_ACC_PRIVATE);
-}
-
-void updatePropertyPublicKeyAlgorithm(void * object, X509 * x509) {
-    char * publicKeyAlgorithm;
-    zval * publicKeyAlgorithmAttribute;
-    publicKeyAlgorithm = malloc(SIGNATURE_ALGORITHM_LENGTH * sizeof(char));
-    if (getSignatureAlgorithm(x509, publicKeyAlgorithm) == EXIT_FAILURE) {
-        php_error(E_ERROR, "Could not read X509 public key algorithm.");
-    }
-    MAKE_STD_ZVAL(publicKeyAlgorithmAttribute);
-    ZVAL_STRING(publicKeyAlgorithmAttribute, publicKeyAlgorithm, 1);
-    zend_update_property(openssl_pkcs_x509_ce, object, "publicKeyAlgorithm", sizeof("publicKeyAlgorithm")-1, publicKeyAlgorithmAttribute TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_x509_ce, "subjectPublicKeyInfo", sizeof("subjectPublicKeyInfo")-1, ZEND_ACC_PRIVATE);
 }
 
 void updatePropertyVersion(void * object, X509 * x509) {
@@ -276,4 +264,35 @@ void updatePropertyIssuerSubject(void * object, X509 * x509, char * type) {
     if (type == PHP_OPENSSL_PKCS_X509_SUBJECT) {
         zend_update_property(openssl_pkcs_x509_ce, object, "subject", sizeof("subject")-1, attribute);
     }
+}
+
+void updatePropertySubjectPublicKeyInfo(void * object, X509 * x509) {
+    zval * attribute;
+    MAKE_STD_ZVAL(attribute);
+    array_init(attribute);
+
+    EVP_PKEY * pubkey = X509_get_pubkey(x509);
+    RSA * rsa = EVP_PKEY_get1_RSA(pubkey);
+
+    // bites
+    add_assoc_long(attribute, "bits", EVP_PKEY_bits(pubkey));
+
+    // algorithm
+    char * publicKeyAlgorithm = malloc(SIGNATURE_ALGORITHM_LENGTH * sizeof(char));
+    if (getSignatureAlgorithm(x509, publicKeyAlgorithm) == EXIT_FAILURE) {
+        php_error(E_ERROR, "Could not read X509 public key algorithm.");
+    }
+    add_assoc_string(attribute, "algorithm", publicKeyAlgorithm, 1);
+
+    // exponent
+    zval * rsaAttribute;
+    MAKE_STD_ZVAL(rsaAttribute);
+    array_init(rsaAttribute);
+
+    add_assoc_string(attribute, "exponent", BN_bn2dec(rsa->e), 1);
+
+    RSA_free(rsa);
+    EVP_PKEY_free(pubkey);
+
+    zend_update_property(openssl_pkcs_x509_ce, object, "subjectPublicKeyInfo", sizeof("subjectPublicKeyInfo")-1, attribute TSRMLS_CC);
 }

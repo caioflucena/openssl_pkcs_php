@@ -58,19 +58,17 @@ int getSerialNumber(X509 * x509, char * serialNumber) {
 }
 
 int getSignatureAlgorithm(X509 * x509, char * signatureAlgorithm) {
-    memcpy(signatureAlgorithm, "asd", 3);
-    
     int pkey_nid = OBJ_obj2nid(x509->cert_info->key->algor->algorithm);
     if (pkey_nid == NID_undef) {
         return EXIT_FAILURE;
     }
-    
+
     const char* sslbuf = OBJ_nid2ln(pkey_nid);
-    if (NULL == sslbuf) {// strlen(sslbuf) > 3) {
+    if (NULL == sslbuf) {
         return EXIT_FAILURE;
     }
-    strncpy(signatureAlgorithm, sslbuf, strlen(sslbuf));
-    
+    strncpy(signatureAlgorithm, sslbuf, SIGNATURE_ALGORITHM_LENGTH);
+
     return EXIT_SUCCESS;
 }
 
