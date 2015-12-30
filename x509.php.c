@@ -1,4 +1,4 @@
-#include "php_x509.h"
+#include "x509.php.h"
 
 /**
  *
@@ -26,8 +26,7 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
     updatePropertyPublicKeyAlgorithm(getThis(), x509);
     updatePropertyVersion(getThis(), x509);
     updatePropertySerialNumber(getThis(), x509);
-    updatePropertyValidityNotBefore(getThis(), x509);
-    updatePropertyValidityNotAfter(getThis(), x509);
+    updatePropertyValidity(getThis(), x509);
     updatePropertyIssuerSubject(getThis(), x509, PHP_OPENSSL_PKCS_X509_ISSUER);
     updatePropertyIssuerSubject(getThis(), x509, PHP_OPENSSL_PKCS_X509_SUBJECT);
 
@@ -64,8 +63,7 @@ void openssl_pkcs_init_x509(TSRMLS_D) {
     zend_declare_property_null(openssl_pkcs_x509_ce, "version", sizeof("version")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "serialNumber", sizeof("serialNumber")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "publicKeyAlgorithm", sizeof("publicKeyAlgorithm")-1, ZEND_ACC_PRIVATE);
-    zend_declare_property_null(openssl_pkcs_x509_ce, "validityNotBefore", sizeof("validityNotBefore")-1, ZEND_ACC_PRIVATE);
-    zend_declare_property_null(openssl_pkcs_x509_ce, "validityNotAfter", sizeof("validityNotAfter")-1, ZEND_ACC_PRIVATE);
+    zend_declare_property_null(openssl_pkcs_x509_ce, "validity", sizeof("validity")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "issuer", sizeof("issuer")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "subject", sizeof("subject")-1, ZEND_ACC_PRIVATE);
 }
@@ -106,13 +104,20 @@ void updatePropertySerialNumber(void * object, X509 * x509) {
     zend_update_property(openssl_pkcs_x509_ce, object, "serialNumber", sizeof("serialNumber")-1, serialNumberAttribute TSRMLS_CC);
 }
 
-void updatePropertyValidityNotBefore(void * object, X509 * x509) {
+void updatePropertyValidity(void * object, X509 * x509) {
     zend_class_entry * dateTimeCE;
+    zval * validityAttribute;
     char * validityNotBefore;
     zval * validityNotBeforeDateParam;
     zval * validityNotBeforeAttribute;
+    char * validityNotAfter;
+    zval * validityNotAfterDateParam;
+    zval * validityNotAfterAttribute;
 
     dateTimeCE = php_date_get_date_ce();
+
+    MAKE_STD_ZVAL(validityAttribute);
+    array_init(validityAttribute);
 
     validityNotBefore = (char *) malloc(sizeof(char) * DATE_LENGTH);
     if (getValidityNotBefore(x509, validityNotBefore) == EXIT_FAILURE) {
@@ -126,16 +131,7 @@ void updatePropertyValidityNotBefore(void * object, X509 * x509) {
     if (zend_call_method(&validityNotBeforeAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotBeforeDateParam TSRMLS_CC) == EXIT_FAILURE) {
         php_error(E_WARNING, "Could not create validity not before datetime object.");
     }
-    zend_update_property(openssl_pkcs_x509_ce, object, "validityNotBefore", sizeof("validityNotBefore")-1, validityNotBeforeAttribute);
-}
-
-void updatePropertyValidityNotAfter(void * object, X509 * x509) {
-    zend_class_entry * dateTimeCE;
-    char * validityNotAfter;
-    zval * validityNotAfterDateParam;
-    zval * validityNotAfterAttribute;
-
-    dateTimeCE = php_date_get_date_ce();
+    add_assoc_zval(validityAttribute, "notBefore", validityNotBeforeAttribute);
 
     validityNotAfter = (char *) malloc(sizeof(char) * DATE_LENGTH);
     if (getValidityNotAfter(x509, validityNotAfter) == EXIT_FAILURE) {
@@ -149,7 +145,9 @@ void updatePropertyValidityNotAfter(void * object, X509 * x509) {
     if (zend_call_method(&validityNotAfterAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotAfterDateParam TSRMLS_CC) == EXIT_FAILURE) {
         php_error(E_WARNING, "Could not create validity not after datetime object.");
     }
-    zend_update_property(openssl_pkcs_x509_ce, object, "validityNotAfter", sizeof("validityNotAfter")-1, validityNotAfterAttribute);
+    add_assoc_zval(validityAttribute, "notAfter", validityNotAfterAttribute);
+
+    zend_update_property(openssl_pkcs_x509_ce, object, "validity", sizeof("validity")-1, validityAttribute);
 }
 
 void updatePropertyIssuerSubject(void * object, X509 * x509, char * type) {

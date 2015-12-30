@@ -1,4 +1,4 @@
-#include "php_p7s.h"
+#include "p7s.php.h"
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_construct, 0, 0, 0)
     ZEND_ARG_INFO(0, filename)

@@ -7,7 +7,7 @@
 #include <php.h>
 #include "ext/date/php_date.h"
 #include "p7s.h"
-#include "php_x509.h"
+#include "x509.php.h"
 
 zend_class_entry * openssl_pkcs_p7s_ce;
 
