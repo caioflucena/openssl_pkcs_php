@@ -1,21 +1,12 @@
-/* $Id$ */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "stdlib.h"
-#include "php.h"
-#include "php_ini.h"
-#include "ext/standard/info.h"
-#include "php_openssl_pkcs.h"
-
-#include "p7s.h"
-
-static int le_openssl_pkcs;
+#include "openssl_pkcs.h"
 
 PHP_MINIT_FUNCTION(openssl_pkcs) {
     openssl_pkcs_init_p7s(TSRMLS_C);
+    openssl_pkcs_init_x509(TSRMLS_C);
     return SUCCESS;
 }
 
@@ -38,7 +29,7 @@ PHP_MINFO_FUNCTION(openssl_pkcs) {
 }
 
 const zend_function_entry openssl_pkcs_functions[] = {
-    PHP_FE_END	/* Must be the last line in openssl_pkcs_functions[] */
+    PHP_FE_END
 };
 
 zend_module_entry openssl_pkcs_module_entry = {
@@ -47,8 +38,8 @@ zend_module_entry openssl_pkcs_module_entry = {
     openssl_pkcs_functions,
     PHP_MINIT(openssl_pkcs),
     PHP_MSHUTDOWN(openssl_pkcs),
-    PHP_RINIT(openssl_pkcs),		/* Replace with NULL if there's nothing to do at request start */
-    PHP_RSHUTDOWN(openssl_pkcs),	/* Replace with NULL if there's nothing to do at request end */
+    PHP_RINIT(openssl_pkcs),
+    PHP_RSHUTDOWN(openssl_pkcs),
     PHP_MINFO(openssl_pkcs),
     PHP_OPENSSL_PKCS_VERSION,
     STANDARD_MODULE_PROPERTIES
