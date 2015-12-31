@@ -17,13 +17,22 @@ PHP_METHOD(openssl_pkcs7, __construct) {
         return;
     }
 
-    p7s = malloc(sizeof(PKCS7));
-    if (getPkcs7FromFile(filename, p7s) == EXIT_FAILURE) {
+    BIO * bio = BIO_new(BIO_s_file());
+    BIO_read_filename(bio, filename);
+    if (bio == NULL) {
         zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read p7s file.", 0 TSRMLS_CC);
         return;
     }
+    d2i_PKCS7_bio(bio, &p7s);
+    if (NULL == p7s) {
+        PKCS7_free(p7s);
+        BIO_free(bio);
+        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read p7s file.", 0 TSRMLS_CC);
+        return;
+    }
+    BIO_free(bio);
 
-    // certificates
+    // attributes
     updatePropertyIsDetached(getThis(), 1);
     updatePropertySignatures(getThis(), p7s);
     updatePropertyCertificates(getThis(), p7s);
@@ -132,8 +141,12 @@ void updatePropertyCertificates(void * object, PKCS7 * p7s) {
     STACK_OF(X509) * certificates;
     zval * certificatesAttribute;
 
-    if (getStackOfX509(p7s, &certificates) == EXIT_FAILURE) {
-        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read certificate info.", 0 TSRMLS_CC);
+    int type;
+    type = OBJ_obj2nid(p7s->type);
+    if (type == NID_pkcs7_signed) {
+        certificates = p7s->d.sign->cert;
+    } else if(type == NID_pkcs7_signedAndEnveloped) {
+        certificates = p7s->d.signed_and_enveloped->cert;
     }
 
     MAKE_STD_ZVAL(certificatesAttribute);
@@ -180,25 +193,37 @@ void updatePropertySignatures(void * object, PKCS7 * p7s) {
     MAKE_STD_ZVAL(signatures);
     array_init(signatures);
 
-    if (getSignersInfo(p7s, &p7sSignersInfo) == EXIT_FAILURE) {
-        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signer info.", 0 TSRMLS_CC);
-    }
-
-    if (getSignersInfoCount(p7sSignersInfo, &numSignerInfo) == EXIT_FAILURE) {
-        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not count signer info.", 0 TSRMLS_CC);
-    }
+    p7sSignersInfo = PKCS7_get_signer_info(p7s);
+    numSignerInfo = sk_PKCS7_SIGNER_INFO_num(p7sSignersInfo);
 
     for (index = 0; index < numSignerInfo; ++index) {
-        if (getSignerInfo(p7sSignersInfo, &index, &p7sSignerInfo) == EXIT_FAILURE) {
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signer info.", 0 TSRMLS_CC);
-        }
+        p7sSignerInfo = sk_PKCS7_SIGNER_INFO_value(p7sSignersInfo, index);
 
         MAKE_STD_ZVAL(signature);
         array_init(signature);
 
-        if (getSignatureDatetime(p7sSignerInfo, &signatureDatetime) == EXIT_FAILURE) {
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read signature datetime info.", 0 TSRMLS_CC);
+        unsigned char * datetime = NULL;
+        zval * param1;
+        zval * param2;
+        ASN1_TYPE * signedTime = PKCS7_get_signed_attribute(p7sSignerInfo, NID_pkcs9_signingTime);
+        if (NULL == signedTime) {
+            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create signature datetime instance.", 0 TSRMLS_CC);
+            return;
         }
+        datetime = signedTime->value.utctime->data;
+        if (NULL == datetime) {
+            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create signature datetime instance.", 0 TSRMLS_CC);
+            return;
+        }
+        MAKE_STD_ZVAL(param1);
+        ZVAL_STRING(param1, "ymdHisZ", 1);
+        MAKE_STD_ZVAL(param2);
+        ZVAL_STRING(param2, datetime, 1);
+        if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &signatureDatetime, 2, param1, param2 TSRMLS_CC) == NULL) {
+            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create signature datetime instance.", 0 TSRMLS_CC);
+            return;
+        }
+
         add_assoc_zval(signature, "datetime", signatureDatetime);
 
         add_next_index_zval(signatures, signature);
@@ -212,45 +237,4 @@ void updatePropertyIsDetached(void * object, int value) {
     MAKE_STD_ZVAL(isDetachedAttribute);
     ZVAL_BOOL(isDetachedAttribute, value);
     zend_update_property(openssl_pkcs_p7s_ce, object, "isDetached", sizeof("isDetached")-1, isDetachedAttribute);
-}
-
-/**
- *
- */
-int getSignatureDatetime(PKCS7_SIGNER_INFO * p7sSignerInfo, zval ** signatureDatetime) {
-    unsigned char * datetime;
-    zval * param1;
-    zval * param2;
-
-    if (getSignatureDatetimeString(p7sSignerInfo, &datetime) == EXIT_FAILURE) {
-        return EXIT_FAILURE;
-    }
-
-    MAKE_STD_ZVAL(param1);
-    ZVAL_STRING(param1, "ymdHisZ", 1);
-    MAKE_STD_ZVAL(param2);
-    ZVAL_STRING(param2, datetime, 1);
-
-    if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &(*signatureDatetime), 2, param1, param2 TSRMLS_CC) == NULL) {
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
-}
-
-int getSignatureSigner(PKCS7_SIGNER_INFO * p7sSignerInfo, zval ** signatureSigner) {
-    zval * x509Param;
-    zend_class_entry * x509CE = php_openssl_pkcs_get_x509_ce();
-
-    MAKE_STD_ZVAL(*signatureSigner);
-    object_init_ex(*signatureSigner, x509CE);
-
-    MAKE_STD_ZVAL(x509Param);
-    ZVAL_STRING(x509Param, "/var/www/html/pkcs/certificate.crt", 1);
-
-    if (zend_call_method(signatureSigner, x509CE, &(x509CE)->constructor, ZEND_STRL(x509CE->constructor->common.function_name), NULL, 1, x509Param, NULL TSRMLS_CC) == NULL) {
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
 }
