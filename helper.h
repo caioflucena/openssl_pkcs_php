@@ -1,5 +1,5 @@
-#ifndef PHP_OPENSSL_PKCS_FUNCTION_H
-#define PHP_OPENSSL_PKCS_FUNCTION_H
+#ifndef PHP_OPENSSL_PKCS_HELPER_H
+#define PHP_OPENSSL_PKCS_HELPER_H
 
 #include <stdlib.h>
 

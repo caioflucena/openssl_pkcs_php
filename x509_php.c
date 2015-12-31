@@ -93,47 +93,20 @@ void updatePropertyData(void * object, X509 * x509) {
 }
 
 void updatePropertyValidity(void * object, X509 * x509) {
-    zend_class_entry * dateTimeCE;
     zval * validityAttribute;
-    char * validityNotBefore;
-    zval * validityNotBeforeDateParam;
-    zval * validityNotBeforeAttribute;
-    char * validityNotAfter;
-    zval * validityNotAfterDateParam;
-    zval * validityNotAfterAttribute;
-
-    dateTimeCE = php_date_get_date_ce();
+    zval * validityNotBefore;
+    zval * validityNotAfter;
 
     MAKE_STD_ZVAL(validityAttribute);
     array_init(validityAttribute);
 
-    validityNotBefore = (char *) malloc(sizeof(char) * DATE_LENGTH);
-    if (getValidityNotBefore(x509, validityNotBefore) == EXIT_FAILURE) {
-        php_error(E_ERROR, "Could not read X509 validity not before.");
-    }
-    MAKE_STD_ZVAL(validityNotBeforeAttribute);
-    object_init_ex(validityNotBeforeAttribute, dateTimeCE);
-    MAKE_STD_ZVAL(validityNotBeforeDateParam);
-    ZVAL_STRING(validityNotBeforeDateParam, validityNotBefore, 1);
-    free(validityNotBefore);
-    if (zend_call_method(&validityNotBeforeAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotBeforeDateParam, NULL) == EXIT_FAILURE) {
-        php_error(E_WARNING, "Could not create validity not before datetime object.");
-    }
-    add_assoc_zval(validityAttribute, "notBefore", validityNotBeforeAttribute);
+    MAKE_STD_ZVAL(validityNotBefore);
+    getValidityDateTimeInstance(x509, validityNotBefore, PHP_OPENSSL_PKCS_X509_VALIDITY_BEFORE);
+    add_assoc_zval(validityAttribute, "notBefore", validityNotBefore);
 
-    validityNotAfter = (char *) malloc(sizeof(char) * DATE_LENGTH);
-    if (getValidityNotAfter(x509, validityNotAfter) == EXIT_FAILURE) {
-        php_error(E_ERROR, "Could not read X509 validity not after.");
-    }
-    MAKE_STD_ZVAL(validityNotAfterAttribute);
-    object_init_ex(validityNotAfterAttribute, dateTimeCE);
-    MAKE_STD_ZVAL(validityNotAfterDateParam);
-    ZVAL_STRING(validityNotAfterDateParam, validityNotAfter, 1);
-    free(validityNotAfter);
-    if (zend_call_method(&validityNotAfterAttribute, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, validityNotAfterDateParam, NULL) == EXIT_FAILURE) {
-        php_error(E_WARNING, "Could not create validity not after datetime object.");
-    }
-    add_assoc_zval(validityAttribute, "notAfter", validityNotAfterAttribute);
+    MAKE_STD_ZVAL(validityNotAfter);
+    getValidityDateTimeInstance(x509, validityNotAfter, PHP_OPENSSL_PKCS_X509_VALIDITY_AFTER);
+    add_assoc_zval(validityAttribute, "notAfter", validityNotAfter);
 
     zend_update_property(openssl_pkcs_x509_ce, object, "validity", sizeof("validity")-1, validityAttribute);
 }
@@ -337,4 +310,46 @@ void updatePropertyX509v3Extensions(void * object, X509 * x509) {
     }
 
     zend_update_property(openssl_pkcs_x509_ce, object, "x509v3Extensions", sizeof("x509v3Extensions")-1, attribute TSRMLS_CC);
+}
+
+
+/**
+ *
+ */
+void getValidityDateTimeInstance(X509 * x509, zval * dateTime, char * type) {
+    char * dateTimeChar;
+    ASN1_TIME * asn1Time;
+    zend_class_entry * dateTimeCE;
+    zval * param;
+
+    dateTimeCE = php_date_get_date_ce();
+    dateTimeChar = (char *) malloc(sizeof(char) * 128);
+
+    if (type == PHP_OPENSSL_PKCS_X509_VALIDITY_BEFORE) {
+        asn1Time = X509_get_notBefore(x509);
+    } else {
+        asn1Time = X509_get_notAfter(x509);
+    }
+    int rc;
+
+    BIO *b = BIO_new(BIO_s_mem());
+    rc = ASN1_TIME_print(b, asn1Time);
+    if (rc <= 0) {
+        BIO_free(b);
+        return;
+    }
+    rc = BIO_gets(b, dateTimeChar, 128);
+    if (rc <= 0) {
+        BIO_free(b);
+        return;
+    }
+    BIO_free(b);
+
+    object_init_ex(dateTime, dateTimeCE);
+    MAKE_STD_ZVAL(param);
+    ZVAL_STRING(param, dateTimeChar, 1);
+    if (zend_call_method(&dateTime, dateTimeCE, &dateTimeCE->constructor, ZEND_STRL(dateTimeCE->constructor->common.function_name), NULL, 1, param, NULL) == EXIT_FAILURE) {
+        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create validity not before datetime object.", 0 TSRMLS_CC);
+        return;
+    }
 }

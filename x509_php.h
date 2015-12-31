@@ -6,7 +6,10 @@
 #include <zend_interfaces.h>
 #include <zend_exceptions.h>
 #include "ext/date/php_date.h"
-#include "x509.h"
+#include <openssl/bio.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include "helper.h"
 
 /**
  *
@@ -14,6 +17,8 @@
 #define PHP_OPENSSL_PKCS_X509_RESOURCE_NAME "X509 Data"
 #define PHP_OPENSSL_PKCS_X509_ISSUER "ISSUER"
 #define PHP_OPENSSL_PKCS_X509_SUBJECT "SUBJECT"
+#define PHP_OPENSSL_PKCS_X509_VALIDITY_BEFORE "VALIDITY_BEFORE"
+#define PHP_OPENSSL_PKCS_X509_VALIDITY_AFTER "VALIDITY_AFTER"
 
 /**
  * 
@@ -40,5 +45,6 @@ void updatePropertyValidity(void * object, X509 * x509);
 void updatePropertyIssuerSubject(void * object, X509 * x509, char * type);
 void updatePropertySubjectPublicKeyInfo(void * object, X509 * x509);
 void updatePropertyX509v3Extensions(void * object, X509 * x509);
+void getValidityDateTimeInstance(X509 * x509, zval * dateTime, char * type);
 
 #endif
