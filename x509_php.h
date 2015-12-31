@@ -35,10 +35,10 @@ void openssl_pkcs_init_x509(TSRMLS_D);
 /**
  *
  */
-void updatePropertyVersion(void * object, X509 * x509);
-void updatePropertySerialNumber(void * object, X509 * x509);
+void updatePropertyData(void * object, X509 * x509);
 void updatePropertyValidity(void * object, X509 * x509);
 void updatePropertyIssuerSubject(void * object, X509 * x509, char * type);
 void updatePropertySubjectPublicKeyInfo(void * object, X509 * x509);
+void updatePropertyX509v3Extensions(void * object, X509 * x509);
 
 #endif

@@ -7,7 +7,8 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
     int len;
     char * file;
     zval * param;
-    X509 * x509;
+    BIO * bio = NULL;
+    X509 * x509 = NULL;
     TSRMLS_FETCH();
 
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|r", &file, &len, &param) == FAILURE) {
@@ -15,22 +16,28 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
     }
 
     if (0 < len) {
-        x509 = (X509 *) malloc(sizeof(X509));
-        if (getX509FromFile(file, x509) == EXIT_FAILURE) {
+        bio = BIO_new(BIO_s_file());
+        BIO_read_filename(bio, file);
+        if (NULL == bio) {
+            free(bio);
             zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read the x509 file.", 0 TSRMLS_CC);
+            return;
         }
+
+        x509 = PEM_read_bio_X509(bio,NULL,0,NULL);
     } else {
         ZEND_FETCH_RESOURCE(x509, X509*, &param, -1, PHP_OPENSSL_PKCS_X509_RESOURCE_NAME, le_openssl_x509_resource);
     }
 
-    updatePropertyVersion(getThis(), x509);
-    updatePropertySerialNumber(getThis(), x509);
+    updatePropertyData(getThis(), x509);
     updatePropertyValidity(getThis(), x509);
     updatePropertyIssuerSubject(getThis(), x509, PHP_OPENSSL_PKCS_X509_ISSUER);
     updatePropertyIssuerSubject(getThis(), x509, PHP_OPENSSL_PKCS_X509_SUBJECT);
     updatePropertySubjectPublicKeyInfo(getThis(), x509);
+    updatePropertyX509v3Extensions(getThis(), x509);
 
     free(x509);
+    free(bio);
 }
 
 /**
@@ -59,36 +66,30 @@ void openssl_pkcs_init_x509(TSRMLS_D) {
     // flags
     openssl_pkcs_x509_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
-    zend_declare_property_null(openssl_pkcs_x509_ce, "version", sizeof("version")-1, ZEND_ACC_PRIVATE);
-    zend_declare_property_null(openssl_pkcs_x509_ce, "serialNumber", sizeof("serialNumber")-1, ZEND_ACC_PRIVATE);
+    zend_declare_property_null(openssl_pkcs_x509_ce, "data", sizeof("data")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "validity", sizeof("validity")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "issuer", sizeof("issuer")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "subject", sizeof("subject")-1, ZEND_ACC_PRIVATE);
     zend_declare_property_null(openssl_pkcs_x509_ce, "subjectPublicKeyInfo", sizeof("subjectPublicKeyInfo")-1, ZEND_ACC_PRIVATE);
+    zend_declare_property_null(openssl_pkcs_x509_ce, "x509v3Extensions", sizeof("x509v3Extensions")-1, ZEND_ACC_PRIVATE);
 }
 
-void updatePropertyVersion(void * object, X509 * x509) {
-    long version;
-    zval * versionAttribute;
-    if (getVersion(x509, &version) == EXIT_FAILURE) {
-        php_error(E_ERROR, "Could not read X509 version.");
-    }
-    MAKE_STD_ZVAL(versionAttribute);
-    ZVAL_LONG(versionAttribute, version);
-    zend_update_property(openssl_pkcs_x509_ce, object, "version", sizeof("version")-1, versionAttribute TSRMLS_CC);
-}
+void updatePropertyData(void * object, X509 * x509) {
+    zval * attribute;
+    MAKE_STD_ZVAL(attribute);
+    array_init(attribute);
 
-void updatePropertySerialNumber(void * object, X509 * x509) {
-    char * serialNumber;
-    zval * serialNumberAttribute;
-    serialNumber = (char *) malloc(sizeof(char) * SERIAL_NUMBER_LENGTH);
-    if (getSerialNumber(x509, serialNumber) == EXIT_FAILURE) {
-        php_error(E_ERROR, "Could not read X509 serial number.");
-    }
-    MAKE_STD_ZVAL(serialNumberAttribute);
-    ZVAL_STRING(serialNumberAttribute, serialNumber, 1);
+    add_assoc_long(attribute, "version", ((int) X509_get_version(x509)) + 1);
+
+    char * serialNumber = 0x0;
+    ASN1_INTEGER *serial = X509_get_serialNumber(x509);
+    BIGNUM *bn = ASN1_INTEGER_to_BN(serial, NULL);
+    serialNumber = BN_bn2dec(bn);
+    BN_free(bn);
+    add_assoc_string(attribute, "serialNumber", serialNumber, 1);
     free(serialNumber);
-    zend_update_property(openssl_pkcs_x509_ce, object, "serialNumber", sizeof("serialNumber")-1, serialNumberAttribute TSRMLS_CC);
+
+    zend_update_property(openssl_pkcs_x509_ce, object, "data", sizeof("data")-1, attribute TSRMLS_CC);
 }
 
 void updatePropertyValidity(void * object, X509 * x509) {
@@ -143,26 +144,13 @@ void updatePropertyIssuerSubject(void * object, X509 * x509, char * type) {
     MAKE_STD_ZVAL(attribute);
     array_init(attribute);
 
-    char * content;
-
     if (type == PHP_OPENSSL_PKCS_X509_ISSUER) {
-        content = malloc(ISSUER_LENGTH);
-        memset(content, 0, ISSUER_LENGTH);
-        if (getIssuer(x509, content) == EXIT_FAILURE) {
-            php_error(E_ERROR, "Could not read X509 issuer.");
-        }
         x509Name = X509_get_issuer_name(x509);
     }
 
     if (type == PHP_OPENSSL_PKCS_X509_SUBJECT) {
-        content = malloc(SUBJECT_LENGTH);
-        memset(content, 0, SUBJECT_LENGTH);
-        if (getSubject(x509, content) == EXIT_FAILURE) {
-            php_error(E_ERROR, "Could not read X509 subject.");
-        }
         x509Name = X509_get_subject_name(x509);
     }
-
 
     // country name
     char * countryNameAttribute = NULL;
@@ -255,8 +243,6 @@ void updatePropertyIssuerSubject(void * object, X509 * x509, char * type) {
     }
     add_assoc_string(attribute, "emailAddress", emailAddressAttribute, 1);
 
-    free(content);
-
     if (type == PHP_OPENSSL_PKCS_X509_ISSUER) {
         zend_update_property(openssl_pkcs_x509_ce, object, "issuer", sizeof("issuer")-1, attribute);
     }
@@ -274,24 +260,81 @@ void updatePropertySubjectPublicKeyInfo(void * object, X509 * x509) {
     RSA * rsa = EVP_PKEY_get1_RSA(pubkey);
 
     // bites
-    add_assoc_long(attribute, "bits", EVP_PKEY_bits(pubkey));
+    add_assoc_long(attribute, "publicKey", EVP_PKEY_bits(pubkey));
 
     // algorithm
-    char * publicKeyAlgorithm = malloc(SIGNATURE_ALGORITHM_LENGTH * sizeof(char));
-    if (getSignatureAlgorithm(x509, publicKeyAlgorithm) == EXIT_FAILURE) {
-        php_error(E_ERROR, "Could not read X509 public key algorithm.");
-    }
+    int pkey_nid = OBJ_obj2nid(x509->cert_info->key->algor->algorithm);
+    char * publicKeyAlgorithm = (char *)OBJ_nid2ln(pkey_nid);
     add_assoc_string(attribute, "algorithm", publicKeyAlgorithm, 1);
 
     // exponent
-    zval * rsaAttribute;
-    MAKE_STD_ZVAL(rsaAttribute);
-    array_init(rsaAttribute);
-
     add_assoc_string(attribute, "exponent", BN_bn2dec(rsa->e), 1);
+
+    // modulus
+    add_assoc_string(attribute, "modulus", BN_bn2hex(rsa->n), 1);
 
     RSA_free(rsa);
     EVP_PKEY_free(pubkey);
 
     zend_update_property(openssl_pkcs_x509_ce, object, "subjectPublicKeyInfo", sizeof("subjectPublicKeyInfo")-1, attribute TSRMLS_CC);
+}
+
+void updatePropertyX509v3Extensions(void * object, X509 * x509) {
+    zval * attribute;
+    MAKE_STD_ZVAL(attribute);
+    array_init(attribute);
+
+    STACK_OF(X509_EXTENSION) *exts = x509->cert_info->extensions;
+    int num_of_exts;
+    if (exts) {
+        num_of_exts = sk_X509_EXTENSION_num(exts);
+    } else {
+        num_of_exts = 0;
+    }
+
+    int i;
+    for (i=0; i < num_of_exts; i++) {
+        X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
+        ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
+        unsigned nid = OBJ_obj2nid(obj);
+
+        char extname[500];
+        OBJ_obj2txt(extname, 500, (const ASN1_OBJECT *) obj, 1);
+
+        BUF_MEM *bptr = NULL;
+        char *buf = NULL;
+        int loc;
+        loc = X509_get_ext_by_NID(x509, nid, -1);
+        ex = X509_get_ext(x509, loc);
+
+        BIO *bio = BIO_new(BIO_s_mem());
+        if(!X509V3_EXT_print(bio, ex, 0, 0)){
+            continue;
+        }
+        BIO_flush(bio);
+        BIO_get_mem_ptr(bio, &bptr);
+
+        // remove newlines
+        int lastchar = bptr->length;
+        if (lastchar > 1 && (bptr->data[lastchar-1] == '\n' || bptr->data[lastchar-1] == '\r')) {
+            bptr->data[lastchar-1] = (char) 0;
+        }
+        if (lastchar > 0 && (bptr->data[lastchar] == '\n' || bptr->data[lastchar] == '\r')) {
+            bptr->data[lastchar] = (char) 0;
+        }
+
+        buf = (char *)malloc( (bptr->length + 1)*sizeof(char) );
+        memcpy(buf, bptr->data, bptr->length);
+
+        const char *c_ext_name = OBJ_nid2ln(nid);
+        char * name = malloc(strlen(c_ext_name)+1);
+        memcpy(name, c_ext_name, strlen(c_ext_name)+1);
+        add_assoc_string(attribute, name, buf, 1);
+
+        free(buf);
+        free(name);
+        BIO_free(bio);
+    }
+
+    zend_update_property(openssl_pkcs_x509_ce, object, "x509v3Extensions", sizeof("x509v3Extensions")-1, attribute TSRMLS_CC);
 }

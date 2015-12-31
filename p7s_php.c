@@ -20,6 +20,7 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     p7s = malloc(sizeof(PKCS7));
     if (getPkcs7FromFile(filename, p7s) == EXIT_FAILURE) {
         zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read p7s file.", 0 TSRMLS_CC);
+        return;
     }
 
     // certificates
