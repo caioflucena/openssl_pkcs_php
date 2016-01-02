@@ -24,7 +24,11 @@ PHP_METHOD(openssl_pkcs_x509, __construct) {
             return;
         }
 
-        x509 = PEM_read_bio_X509(bio,NULL,0,NULL);
+        PEM_read_bio_X509(bio, &x509, 0, NULL);
+        if (NULL == x509) {
+            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not read the x509 file.", 0 TSRMLS_CC);
+            return;
+        }
     } else {
         ZEND_FETCH_RESOURCE(x509, X509*, &param, -1, PHP_OPENSSL_PKCS_X509_RESOURCE_NAME, le_openssl_x509_resource);
     }
