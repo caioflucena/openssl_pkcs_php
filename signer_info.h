@@ -13,7 +13,7 @@
 /**
  *
  */
-#define PHP_OPENSSL_PKCS_SIGNER_INFO_RESOURCE_NAME "SingerInfo Data"
+#define PHP_OPENSSL_PKCS_SIGNER_INFO_RESOURCE_NAME "Singer Info Data"
 
 /**
  *

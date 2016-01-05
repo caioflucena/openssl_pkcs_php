@@ -8,7 +8,7 @@
 #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
 #include "ext/date/php_date.h"
-#include "signer_info.h"
+#include "signed.h"
 #include "x509_php.h"
 
 /**

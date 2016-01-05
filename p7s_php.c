@@ -42,7 +42,7 @@ PHP_METHOD(openssl_pkcs_p7s, __construct) {
     zval * type;
     MAKE_STD_ZVAL(type);
     ZVAL_STRING(type, asd, 1);
-    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "type", sizeof("type")-1, type TSRMLS_CC);
+    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "type", strlen("type"), type TSRMLS_CC);
 
     // data
     //zval * data;
@@ -50,120 +50,21 @@ PHP_METHOD(openssl_pkcs_p7s, __construct) {
     //ZVAL_STRING(data, p7s->d.data->data, 1);
     //zend_update_property(openssl_pkcs_p7s_ce, getThis(), "data", sizeof("data")-1, data TSRMLS_CC);
 
-    // sign
-    zval * sign;
-    MAKE_STD_ZVAL(sign);
-    array_init(sign);
-    add_assoc_long(sign, "version", ASN1_INTEGER_get(p7s->d.sign->version));
+    // signed
+    zend_class_entry * signedCE = php_openssl_pkcs_get_signed_ce();
+    zval * signedInstance;
+    MAKE_STD_ZVAL(signedInstance);
+    object_init_ex(signedInstance, signedCE);
 
-    zval * signerInfoAttribute;
-    MAKE_STD_ZVAL(signerInfoAttribute);
-    array_init(signerInfoAttribute);
-
-    zend_class_entry * signerInfoCe = php_openssl_pkcs_get_signer_info_ce();
-    PKCS7_SIGNER_INFO * p7sSignerInfo;
-    STACK_OF(PKCS7_SIGNER_INFO) * p7sSignersInfo = p7s->d.sign->signer_info;
-    int numSignerInfo = sk_PKCS7_SIGNER_INFO_num(p7sSignersInfo);
-    int index;
-    for (index = 0; index < numSignerInfo; ++index) {
-        p7sSignerInfo = sk_PKCS7_SIGNER_INFO_value(p7sSignersInfo, index);
-
-        zval * signerInfoInstance;
-        MAKE_STD_ZVAL(signerInfoInstance);
-        object_init_ex(signerInfoInstance, signerInfoCe);
-
-        zval * signerInfoParam;
-        MAKE_STD_ZVAL(signerInfoParam);
-        int resourceID;
-            resourceID = ZEND_REGISTER_RESOURCE(signerInfoParam, p7sSignerInfo, le_openssl_signer_info_resource);
-        if (zend_call_method(&signerInfoInstance, signerInfoCe, &(signerInfoCe)->constructor, ZEND_STRL(signerInfoCe->constructor->common.function_name), NULL, 1, signerInfoParam, NULL) == EXIT_FAILURE) {
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create a signer info instance.", 0 TSRMLS_CC);
-            return;
-        }
-        add_next_index_zval(signerInfoAttribute, signerInfoInstance);
+    zval * signedParam;
+    MAKE_STD_ZVAL(signedParam);
+    int resourceID;
+        resourceID = ZEND_REGISTER_RESOURCE(signedParam, p7s->d.sign, le_openssl_signed_resource);
+    if (zend_call_method(&signedInstance, signedCE, &(signedCE)->constructor, ZEND_STRL(signedCE->constructor->common.function_name), NULL, 1, signedParam, NULL) == EXIT_FAILURE) {
+        zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create a signer info instance.", 0 TSRMLS_CC);
+        return;
     }
-    add_assoc_zval(sign, "signerInfo", signerInfoAttribute);
-/*
-    zval * signerInfo;
-    MAKE_STD_ZVAL(signerInfo);
-    array_init(signerInfo);
-
-    PKCS7_SIGNER_INFO * p7sSignerInfo;
-    STACK_OF(PKCS7_SIGNER_INFO) * p7sSignersInfo = p7s->d.sign->signer_info;
-    int numSignerInfo = sk_PKCS7_SIGNER_INFO_num(p7sSignersInfo);
-    int index;
-    for (index = 0; index < numSignerInfo; ++index) {
-        p7sSignerInfo = sk_PKCS7_SIGNER_INFO_value(p7sSignersInfo, index);
-
-        zval * signature;
-        MAKE_STD_ZVAL(signature);
-        array_init(signature);
-        add_assoc_long(signature, "version", ASN1_INTEGER_get(p7sSignerInfo->version));
-
-        char * issuer = malloc(1000*sizeof(char));
-        *issuer = 0x0;
-        X509_NAME_oneline(p7sSignerInfo->issuer_and_serial->issuer, issuer, 1000*sizeof(char));
-        add_assoc_string(signature, "issuer", issuer, 1);
-
-        char * serialNumber = 0x0;
-        BIGNUM *bn = ASN1_INTEGER_to_BN(p7sSignerInfo->issuer_and_serial->serial, NULL);
-        serialNumber = BN_bn2dec(bn);
-        BN_free(bn);
-        add_assoc_string(signature, "serialNumber", serialNumber, 1);
-
-        int nid;
-
-        nid = OBJ_obj2nid(p7sSignerInfo->digest_alg->algorithm);
-        unsigned char * digest_alg = malloc(1000*sizeof(char));
-        *digest_alg = 0x0;
-        if (-1 < nid) {
-            const char* sslbuf = OBJ_nid2ln(nid);
-            strncpy(digest_alg, sslbuf, 1000*sizeof(char));
-        }
-        add_assoc_string(signature, "digest_alg", digest_alg, 1);
-
-        nid = OBJ_obj2nid(p7sSignerInfo->digest_enc_alg->algorithm);
-        unsigned char * digest_enc_alg = malloc(1000*sizeof(char));
-        *digest_enc_alg = 0x0;
-        if (-1 < nid) {
-            const char* sslbuf = OBJ_nid2ln(nid);
-            strncpy(digest_enc_alg, sslbuf, 1000*sizeof(char));
-        }
-        add_assoc_string(signature, "digest_enc_alg", digest_enc_alg, 1);
-
-        // @todo
-        add_assoc_string(signature, "enc_digest", ASN1_STRING_data(p7sSignerInfo->enc_digest), 1);
-
-        zval * signatureDatetime;
-        unsigned char * datetime = NULL;
-        zval * param1;
-        zval * param2;
-        ASN1_TYPE * signedTime = PKCS7_get_signed_attribute(p7sSignerInfo, NID_pkcs9_signingTime);
-        if (NULL == signedTime) {
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create signature datetime instance.", 0 TSRMLS_CC);
-            return;
-        }
-        datetime = signedTime->value.utctime->data;
-        if (NULL == datetime) {
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create signature datetime instance.", 0 TSRMLS_CC);
-            return;
-        }
-        MAKE_STD_ZVAL(param1);
-        ZVAL_STRING(param1, "ymdHisZ", 1);
-        MAKE_STD_ZVAL(param2);
-        ZVAL_STRING(param2, datetime, 1);
-        if (zend_call_method(NULL, php_date_get_date_ce(), NULL, "createfromformat", strlen("createFromFormat"), &signatureDatetime, 2, param1, param2 TSRMLS_CC) == NULL) {
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create signature datetime instance.", 0 TSRMLS_CC);
-            return;
-        }
-        add_assoc_zval(signature, "signingTime", signatureDatetime);
-
-        add_next_index_zval(signerInfo, signature);
-    }
-
-    add_assoc_zval(sign, "signerInfo", signerInfo);
-    */
-    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "sign", sizeof("sign")-1, sign TSRMLS_CC);
+    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "signed", strlen("signed"), signedInstance TSRMLS_CC);
 
     // attributes
     //updatePropertySignatures(getThis(), p7s);
@@ -263,9 +164,9 @@ void openssl_pkcs_init_p7s(TSRMLS_D) {
     //zend_declare_property_null(openssl_pkcs_p7s_ce, "signatures", sizeof("signatures")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     //zend_declare_property_null(openssl_pkcs_p7s_ce, "certificates", sizeof("certificates")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
 
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "type", sizeof("type")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "type", strlen("type"), ZEND_ACC_PRIVATE TSRMLS_CC);
     //zend_declare_property_null(openssl_pkcs_p7s_ce, "data", sizeof("data")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
-    zend_declare_property_null(openssl_pkcs_p7s_ce, "sign", sizeof("sign")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_p7s_ce, "signed", strlen("signed"), ZEND_ACC_PRIVATE TSRMLS_CC);
     //zend_declare_property_null(openssl_pkcs_p7s_ce, "enveloped", sizeof("enveloped")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     //zend_declare_property_null(openssl_pkcs_p7s_ce, "signed_and_enveloped", sizeof("signed_and_enveloped")-1, ZEND_ACC_PRIVATE TSRMLS_CC);
     //zend_declare_property_null(openssl_pkcs_p7s_ce, "digest", sizeof("digest")-1, ZEND_ACC_PRIVATE TSRMLS_CC);

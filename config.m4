@@ -3,5 +3,5 @@ PHP_ARG_WITH(openssl_pkcs, for openssl_pkcs support, [  --with-openssl_pkcs     
 
 if test "$PHP_OPENSSL_PKCS" != "no"; then
     dnl PHP_NEW_EXTENSION(openssl_pkcs, openssl_pkcs.c p7s.c, $ext_shared)
-    PHP_NEW_EXTENSION(openssl_pkcs, openssl_pkcs.c p7s_php.c signer_info.c x509_php.c helper.c, $ext_shared)
+    PHP_NEW_EXTENSION(openssl_pkcs, openssl_pkcs.c p7s_php.c signed.c signer_info.c x509_php.c helper.c, $ext_shared)
 fi
