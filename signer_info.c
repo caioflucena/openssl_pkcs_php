@@ -116,4 +116,8 @@ void openssl_pkcs_init_signer_info(TSRMLS_D) {
     openssl_pkcs_signer_info_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
     zend_declare_property_null(openssl_pkcs_signer_info_ce, "issuer", strlen("issuer"), ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_signer_info_ce, "serialNumber", strlen("serialNumber"), ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_signer_info_ce, "digestAlgorithm", strlen("digestAlgorithm"), ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_signer_info_ce, "digestEncryptAlgorithm", strlen("digestEncryptAlgorithm"), ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_signer_info_ce, "signingTime", strlen("signingTime"), ZEND_ACC_PRIVATE TSRMLS_CC);
 }

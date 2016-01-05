@@ -73,4 +73,5 @@ void openssl_pkcs_init_signed(TSRMLS_D) {
     openssl_pkcs_signed_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
     // attributes
     zend_declare_property_null(openssl_pkcs_signed_ce, "version", strlen("version"), ZEND_ACC_PRIVATE TSRMLS_CC);
+    zend_declare_property_null(openssl_pkcs_signed_ce, "signerInfo", strlen("signerInfo"), ZEND_ACC_PRIVATE TSRMLS_CC);
 }
