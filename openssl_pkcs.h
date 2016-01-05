@@ -2,6 +2,7 @@
 #define PHP_OPENSSL_PKCS_H
 
 #include "p7s_php.h"
+#include "signer_info.h"
 #include "x509_php.h"
 
 extern zend_module_entry openssl_pkcs_module_entry;

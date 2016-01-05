@@ -6,6 +6,7 @@
 
 PHP_MINIT_FUNCTION(openssl_pkcs) {
     openssl_pkcs_init_p7s(TSRMLS_C);
+    openssl_pkcs_init_signer_info(TSRMLS_C);
     openssl_pkcs_init_x509(TSRMLS_C);
     return SUCCESS;
 }

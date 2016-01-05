@@ -8,7 +8,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_openssl_pkcs_verify, 0, 0, 1)
     ZEND_ARG_INFO(0, filename)
 ZEND_END_ARG_INFO()
 
-PHP_METHOD(openssl_pkcs7, __construct) {
+PHP_METHOD(openssl_pkcs_p7s, __construct) {
     int filenameLength = 0;
     char * filename = NULL;
     PKCS7 * p7s = NULL;
@@ -56,6 +56,34 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     array_init(sign);
     add_assoc_long(sign, "version", ASN1_INTEGER_get(p7s->d.sign->version));
 
+    zval * signerInfoAttribute;
+    MAKE_STD_ZVAL(signerInfoAttribute);
+    array_init(signerInfoAttribute);
+
+    zend_class_entry * signerInfoCe = php_openssl_pkcs_get_signer_info_ce();
+    PKCS7_SIGNER_INFO * p7sSignerInfo;
+    STACK_OF(PKCS7_SIGNER_INFO) * p7sSignersInfo = p7s->d.sign->signer_info;
+    int numSignerInfo = sk_PKCS7_SIGNER_INFO_num(p7sSignersInfo);
+    int index;
+    for (index = 0; index < numSignerInfo; ++index) {
+        p7sSignerInfo = sk_PKCS7_SIGNER_INFO_value(p7sSignersInfo, index);
+
+        zval * signerInfoInstance;
+        MAKE_STD_ZVAL(signerInfoInstance);
+        object_init_ex(signerInfoInstance, signerInfoCe);
+
+        zval * signerInfoParam;
+        MAKE_STD_ZVAL(signerInfoParam);
+        int resourceID;
+            resourceID = ZEND_REGISTER_RESOURCE(signerInfoParam, p7sSignerInfo, le_openssl_signer_info_resource);
+        if (zend_call_method(&signerInfoInstance, signerInfoCe, &(signerInfoCe)->constructor, ZEND_STRL(signerInfoCe->constructor->common.function_name), NULL, 1, signerInfoParam, NULL) == EXIT_FAILURE) {
+            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Could not create a signer info instance.", 0 TSRMLS_CC);
+            return;
+        }
+        add_next_index_zval(signerInfoAttribute, signerInfoInstance);
+    }
+    add_assoc_zval(sign, "signerInfo", signerInfoAttribute);
+/*
     zval * signerInfo;
     MAKE_STD_ZVAL(signerInfo);
     array_init(signerInfo);
@@ -134,6 +162,7 @@ PHP_METHOD(openssl_pkcs7, __construct) {
     }
 
     add_assoc_zval(sign, "signerInfo", signerInfo);
+    */
     zend_update_property(openssl_pkcs_p7s_ce, getThis(), "sign", sizeof("sign")-1, sign TSRMLS_CC);
 
     // attributes
@@ -216,7 +245,7 @@ PHP_METHOD(openssl_pkcs7, verify) {
  *
  */
 static zend_function_entry openssl_pkcs_p7s_methods[] = {
-    PHP_ME(openssl_pkcs7, __construct, arginfo_openssl_pkcs_construct, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
+    PHP_ME(openssl_pkcs_p7s, __construct, arginfo_openssl_pkcs_construct, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
     //PHP_ME(openssl_pkcs7, getSignature, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
     //PHP_ME(openssl_pkcs7, getContent, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)
     //PHP_ME(openssl_pkcs7, verify, arginfo_openssl_pkcs_verify, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL|ZEND_ACC_CTOR)

@@ -5,9 +5,10 @@
 #include <zend_API.h>
 #include <zend_interfaces.h>
 #include <zend_exceptions.h>
-#include "ext/date/php_date.h"
 #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
+#include "ext/date/php_date.h"
+#include "signer_info.h"
 #include "x509_php.h"
 
 /**
@@ -18,7 +19,7 @@ zend_class_entry * openssl_pkcs_p7s_ce;
 /**
  *
  */
-PHP_METHOD(openssl_pkcs, __construct);
+PHP_METHOD(openssl_pkcs_p7s, __construct);
 
 /**
  *
