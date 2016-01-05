@@ -32,17 +32,18 @@ PHP_METHOD(openssl_pkcs_p7s, __construct) {
     }
     BIO_free(bio);
 
-    char * asd = malloc(1000*sizeof(char));
-    *asd = 0x0;
+    char * type = malloc(1000*sizeof(char));
+    *type = 0x0;
     int nid = OBJ_obj2nid(p7s->type);
     if (-1 < nid) {
         const char* sslbuf = OBJ_nid2ln(nid);
-        strncpy(asd, sslbuf, 1000*sizeof(char));
+        strncpy(type, sslbuf, 1000*sizeof(char));
     }
-    zval * type;
-    MAKE_STD_ZVAL(type);
-    ZVAL_STRING(type, asd, 1);
-    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "type", strlen("type"), type TSRMLS_CC);
+    zval * typeAttribute;
+    MAKE_STD_ZVAL(typeAttribute);
+    ZVAL_STRING(typeAttribute, type, 1);
+    zend_update_property(openssl_pkcs_p7s_ce, getThis(), "type", strlen("type"), typeAttribute TSRMLS_CC);
+    free(type);
 
     // data
     //zval * data;
