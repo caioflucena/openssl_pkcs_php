@@ -327,7 +327,7 @@ void setX509EntityData(X509 * x509, zval ** entity) {
     zval * validityNotAfterDateParam;
     ASN1_TIME *not_after = X509_get_notAfter(x509);
     BIO *c = BIO_new(BIO_s_mem());
-    rc = ASN1_TIME_print(c, not_before);
+    rc = ASN1_TIME_print(c, not_after);
     if (rc <= 0) {
         BIO_free(c);
         php_error(E_ERROR, "Could not read X509 validity not before.");
