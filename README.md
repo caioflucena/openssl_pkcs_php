@@ -7,7 +7,7 @@ The purpose of this extension is cover the signature and content extraction on p
     cd php-src
     git checkout {DESIRED_TAG} (e.g. git checkout php-5.6.15)
 
-#### Next clone the Openssl_Pkcs source code inside the PHP extension folder
+#### Next clone the Openssl_Pkcs_php source code inside the PHP extension folder
     cd ext
     git clone https://github.com/caioflucena/openssl_pkcs_php.git
     cd openssl_pkcs_php
