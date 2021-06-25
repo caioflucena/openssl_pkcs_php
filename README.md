@@ -16,8 +16,8 @@ The purpose of this extension is cover the signature and content extraction on p
 #### Now compile and install the extension
 
     phpize && ./configure && make
-    php-config --extension-dir | awk '{print "mv modules/openssl_pkcs.so " $1}' | sh
-    php -i | grep "Loaded Configuration File" | awk '{print "echo \"extension=openssl_pkcs.so\" >> " $5}' | sh
+    php-config --extension-dir | awk '{print "mv modules/openssl_pkcs_php.so " $1}' | sh
+    php -i | grep "Loaded Configuration File" | awk '{print "echo \"extension=openssl_pkcs_php.so\" >> " $5}' | sh
     service httpd restart
 
 #### Have fun
