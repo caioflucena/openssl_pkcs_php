@@ -10,7 +10,7 @@ The purpose of this extension is cover the signature and content extraction on p
 #### Next clone the Openssl_Pkcs source code inside the PHP extension folder
     cd ext
     git clone https://github.com/caioflucena/openssl_pkcs_php.git
-    cd openssl_pkcs
+    cd openssl_pkcs_php
     git checkout {DESIRED_TAG} (e.g. git checkout 0.2.1)
 
 #### Now compile and install the extension
